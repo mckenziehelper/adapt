@@ -28,3 +28,12 @@ export async function getActiveProgram(): Promise<ProgramModel | null> {
   const programs = await database.get<ProgramModel>('programs').query().fetch()
   return programs.find((p) => p.isActive) ?? null
 }
+
+export async function updateProgram(id: string, programData: any): Promise<void> {
+  await database.write(async () => {
+    const record = await database.get<ProgramModel>('programs').find(id)
+    await record.update((r) => {
+      r.programJson = JSON.stringify(programData)
+    })
+  })
+}

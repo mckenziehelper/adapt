@@ -84,10 +84,14 @@ export default function HomeScreen() {
         )}
 
         {parsed?.program_name && (
-          <View style={styles.programBadge}>
+          <TouchableOpacity
+            style={styles.programBadge}
+            onPress={() => router.push('/program')}
+          >
             <Text style={styles.programLabel}>CURRENT PROGRAM</Text>
             <Text style={styles.programName}>{parsed.program_name}</Text>
-          </View>
+            <Text style={styles.programViewLink}>View & edit →</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -129,4 +133,5 @@ const styles = StyleSheet.create({
   },
   programLabel: { color: Colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 2 },
   programName: { color: Colors.text, fontSize: 16, fontWeight: '600', marginTop: 4 },
+  programViewLink: { color: Colors.accent, fontSize: 13, marginTop: Spacing.xs },
 })
