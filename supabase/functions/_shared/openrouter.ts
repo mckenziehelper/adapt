@@ -1,5 +1,5 @@
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1/chat/completions'
-const MODEL = 'anthropic/claude-sonnet-4-5'
+const MODEL = 'openrouter/auto'
 
 export async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
@@ -20,6 +20,7 @@ export async function callAI(systemPrompt: string, userPrompt: string): Promise<
         { role: 'user', content: userPrompt },
       ],
       response_format: { type: 'json_object' },
+      max_tokens: 1400,
     }),
   })
 

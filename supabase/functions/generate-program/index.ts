@@ -59,7 +59,9 @@ Respond in this exact JSON format:
 }`
 
     const raw = await callAI(SYSTEM_PROMPT, userPrompt)
-    const program = JSON.parse(raw)
+    // Strip markdown code fences if model wraps response
+    const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+    const program = JSON.parse(cleaned)
 
     return new Response(JSON.stringify({ program }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

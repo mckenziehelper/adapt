@@ -4,32 +4,37 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "functions:deploy": "supabase functions deploy --project-ref wrihcdltfwvuobvzjpsc",
+    "functions:test": "node supabase/functions/tests/generate-program.test.js",
+    "build": "npm run functions:deploy && npx expo run:ios"
   },
   "dependencies": {
     "@nozbe/watermelondb": "^0.28.0",
-    "@react-native-community/netinfo": "^12.0.1",
+    "@react-native-community/netinfo": "^11.5.2",
     "@supabase/supabase-js": "^2.101.1",
-    "expo": "~54.0.33",
-    "expo-camera": "~16.0.0",
-    "expo-image-picker": "~16.0.0",
-    "expo-notifications": "^0.29.14",
-    "expo-router": "~4.0.0",
-    "expo-status-bar": "~3.0.9",
-    "nativewind": "^4.2.3",
-    "react": "19.1.0",
-    "react-native": "0.81.5",
-    "react-native-mmkv": "^4.3.0",
-    "tailwindcss": "^3.4.19",
-    "victory-native": "^41.20.2"
+    "expo": "^55.0.11",
+    "expo-camera": "~55.0.13",
+    "expo-image-picker": "~55.0.16",
+    "expo-linking": "^55.0.11",
+    "expo-notifications": "~55.0.16",
+    "expo-router": "~55.0.10",
+    "expo-status-bar": "~55.0.5",
+    "react": "19.2.0",
+    "react-native": "0.83.4",
+    "react-native-safe-area-context": "^5.6.2",
+    "react-native-screens": "^4.23.0",
+    "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^7.29.0",
-    "@types/react": "~19.1.0",
+    "@expo/cli": "^55.0.21",
+    "@types/react": "~19.2.10",
     "babel-preset-expo": "^55.0.15",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "type": "module"
 }
