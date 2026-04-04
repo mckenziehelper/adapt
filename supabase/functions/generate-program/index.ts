@@ -4,7 +4,7 @@ import { callAI } from '../_shared/openrouter.ts'
 const SYSTEM_PROMPT = `You are Adapt's AI coach — a smart, experienced strength coach who specializes in programming for busy people. You understand progressive overload, periodization, and recovery. You're not a hype machine. You're direct, evidence-based, and you respect the user's time.
 
 Your programs are:
-- Always 3 days per week unless specified otherwise
+- Exactly the number of days per week the user specifies — no more, no less
 - Built around compound movements (squat, hinge, push, pull, carry)
 - Progressive — weights increase systematically
 - Realistic — accessory work is minimal and purposeful, not excessive
@@ -23,12 +23,13 @@ serve(async (req) => {
   }
 
   try {
-    const { training_history, goal, equipment, squat, bench, deadlift, watch_summary, session_time } = await req.json()
+    const { training_history, goal, equipment, squat, bench, deadlift, watch_summary, session_time, days_per_week } = await req.json()
 
-    const userPrompt = `Generate a personalized 3-day lifting program for this user:
+    const userPrompt = `Generate a personalized ${days_per_week}-day-per-week lifting program for this user:
 - Training history: ${training_history}
 - Goal: ${goal}
 - Equipment: ${equipment}
+- Days per week: ${days_per_week} (generate exactly this many sessions — A, B, C... up to ${days_per_week})
 - Current estimated lifts: Squat ${squat}lbs, Bench ${bench}lbs, Deadlift ${deadlift}lbs
 - Apple Watch history summary: ${watch_summary ?? 'null'} (null if not imported)
 - Time per session: ${session_time} minutes

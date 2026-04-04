@@ -44,6 +44,7 @@ const QUESTIONS = [
     key: 'days_per_week',
     question: 'How many days per week can you train?',
     options: [
+      { label: '1 day — just keep moving', value: 1 },
       { label: '2 days', value: 2 },
       { label: '3 days', value: 3 },
       { label: '4 days', value: 4 },

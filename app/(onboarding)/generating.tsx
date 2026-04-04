@@ -13,6 +13,7 @@ export default function GeneratingScreen() {
     days_per_week: string
     session_time: string
   }>()
+
   const called = useRef(false)
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function GeneratingScreen() {
           training_history: params.training_history,
           goal: params.goal,
           equipment: params.equipment,
+          days_per_week: parseInt(params.days_per_week, 10),
           squat: '0',
           bench: '0',
           deadlift: '0',
