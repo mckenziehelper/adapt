@@ -41,12 +41,8 @@ export default function ActiveWorkoutScreen() {
   const [restTimer, setRestTimer] = useState<{
     active: boolean
     seconds: number
-    exerciseIndex: number
-  }>({
-    active: false,
-    seconds: 0,
-    exerciseIndex: -1,
-  })
+    total: number
+  }>({ active: false, seconds: 0, total: 0 })
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -80,7 +76,6 @@ export default function ActiveWorkoutScreen() {
 
     setExercises(exerciseStates)
 
-    // Create session record in WatermelonDB — works offline
     const dbSession = await database.write(async () => {
       return database.get<SessionModel>('sessions').create((record) => {
         record.programId = program.id
@@ -93,27 +88,27 @@ export default function ActiveWorkoutScreen() {
     setSessionDbId(dbSession.id)
   }
 
-  function startRestTimer(seconds: number, exerciseIndex: number) {
+  function startRestTimer(seconds: number) {
     if (timerRef.current) clearInterval(timerRef.current)
-    setRestTimer({ active: true, seconds, exerciseIndex })
+    setRestTimer({ active: true, seconds, total: seconds })
 
     timerRef.current = setInterval(() => {
       setRestTimer((prev) => {
         if (prev.seconds <= 1) {
           clearInterval(timerRef.current!)
-          return { active: false, seconds: 0, exerciseIndex: -1 }
+          return { active: false, seconds: 0, total: 0 }
         }
         return { ...prev, seconds: prev.seconds - 1 }
       })
     }, 1000)
   }
 
-  async function logSet(
-    exerciseIndex: number,
-    setIndex: number,
-    reps: number,
-    weight: number
-  ) {
+  function skipRest() {
+    if (timerRef.current) clearInterval(timerRef.current)
+    setRestTimer({ active: false, seconds: 0, total: 0 })
+  }
+
+  async function logSet(exerciseIndex: number, setIndex: number, reps: number, weight: number) {
     if (!sessionDbId) return
 
     setExercises((prev) => {
@@ -127,7 +122,6 @@ export default function ActiveWorkoutScreen() {
       return updated
     })
 
-    // Write to WatermelonDB — works completely offline
     await database.write(async () => {
       await database.get<SetModel>('sets').create((record) => {
         record.sessionId = sessionDbId
@@ -142,7 +136,7 @@ export default function ActiveWorkoutScreen() {
       })
     })
 
-    startRestTimer(exercises[exerciseIndex].restSeconds, exerciseIndex)
+    startRestTimer(exercises[exerciseIndex].restSeconds)
   }
 
   async function finishWorkout() {
@@ -171,25 +165,43 @@ export default function ActiveWorkoutScreen() {
   const allSetsCompleted =
     exercises.length > 0 && exercises.every((ex) => ex.sets.every((s) => s.completed))
 
+  const completedSetsCount = exercises.reduce(
+    (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
+    0
+  )
+  const totalSetsCount = exercises.reduce((acc, ex) => acc + ex.sets.length, 0)
+
   return (
     <SafeAreaView style={styles.safe}>
       {restTimer.active && (
         <View style={styles.restBanner}>
-          <Text style={styles.restText}>Rest — {restTimer.seconds}s</Text>
-          <TouchableOpacity
-            onPress={() => {
-              if (timerRef.current) clearInterval(timerRef.current)
-              setRestTimer({ active: false, seconds: 0, exerciseIndex: -1 })
-            }}
-          >
-            <Text style={styles.restSkip}>Skip</Text>
+          <View style={styles.restLeft}>
+            <Text style={styles.restLabel}>REST</Text>
+            <Text style={styles.restCountdown}>{restTimer.seconds}s</Text>
+          </View>
+          <View style={styles.restBarTrack}>
+            <View
+              style={[
+                styles.restBarFill,
+                { width: `${((restTimer.total - restTimer.seconds) / restTimer.total) * 100}%` },
+              ]}
+            />
+          </View>
+          <TouchableOpacity onPress={skipRest} style={styles.restSkipBtn}>
+            <Text style={styles.restSkipText}>Skip</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Day {sessionDay}</Text>
+          <View>
+            <Text style={styles.headerDay}>DAY {sessionDay}</Text>
+            <Text style={styles.headerProgress}>
+              {completedSetsCount} / {totalSetsCount} sets
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() =>
               Alert.alert('End workout?', 'Progress will be saved.', [
@@ -197,53 +209,79 @@ export default function ActiveWorkoutScreen() {
                 { text: 'End', style: 'destructive', onPress: finishWorkout },
               ])
             }
+            style={styles.endBtn}
           >
-            <Text style={styles.endButton}>End</Text>
+            <Text style={styles.endBtnText}>End</Text>
           </TouchableOpacity>
         </View>
 
         {exercises.length === 0 && (
-          <Text style={{ color: Colors.muted, textAlign: 'center', marginTop: Spacing.xl }}>
-            Loading workout...
-          </Text>
+          <Text style={styles.loadingText}>Loading workout...</Text>
         )}
 
-        {exercises.map((exercise, exIdx) => (
-          <View key={exercise.name} style={styles.exerciseBlock}>
-            <View style={styles.exerciseHeader}>
-              <Text style={styles.exerciseName}>{exercise.name}</Text>
-              <Text style={styles.exerciseCategory}>{exercise.category}</Text>
-            </View>
-            {exercise.notes ? (
-              <Text style={styles.exerciseNotes}>{exercise.notes}</Text>
-            ) : null}
+        {exercises.map((exercise, exIdx) => {
+          const setsComplete = exercise.sets.filter((s) => s.completed).length
+          const allComplete = setsComplete === exercise.sets.length
+          return (
+            <View key={exercise.name} style={styles.exerciseCard}>
+              {/* Exercise header */}
+              <View style={styles.exerciseHeader}>
+                <View style={styles.exerciseTitleRow}>
+                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                  <View
+                    style={[
+                      styles.categoryBadge,
+                      exercise.category === 'main' && styles.categoryMain,
+                      exercise.category === 'accessory' && styles.categoryAccessory,
+                    ]}
+                  >
+                    <Text style={styles.categoryText}>
+                      {exercise.category?.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.exerciseMeta}>
+                  {exercise.sets.length} sets · {exercise.sets[0]?.targetReps} reps ·{' '}
+                  {exercise.restSeconds}s rest
+                </Text>
+                {exercise.notes ? (
+                  <Text style={styles.exerciseNotes}>{exercise.notes}</Text>
+                ) : null}
+              </View>
 
-            <View style={styles.setsHeader}>
-              <Text style={styles.setHeaderCell}>SET</Text>
-              <Text style={styles.setHeaderCell}>TARGET</Text>
-              <Text style={styles.setHeaderCell}>WEIGHT</Text>
-              <Text style={styles.setHeaderCell}>REPS</Text>
-              <Text style={styles.setHeaderCell}></Text>
-            </View>
+              {/* Completion bar */}
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${(setsComplete / exercise.sets.length) * 100}%` },
+                    allComplete && styles.progressFillDone,
+                  ]}
+                />
+              </View>
 
-            {exercise.sets.map((set, setIdx) => (
-              <SetRow
-                key={setIdx}
-                set={set}
-                setIdx={setIdx}
-                onComplete={(reps, weight) => logSet(exIdx, setIdx, reps, weight)}
-              />
-            ))}
-          </View>
-        ))}
+              {/* Sets */}
+              <View style={styles.setsContainer}>
+                {exercise.sets.map((set, setIdx) => (
+                  <SetRow
+                    key={setIdx}
+                    set={set}
+                    setIdx={setIdx}
+                    onComplete={(reps, weight) => logSet(exIdx, setIdx, reps, weight)}
+                  />
+                ))}
+              </View>
+            </View>
+          )
+        })}
 
         {exercises.length > 0 && (
           <TouchableOpacity
-            style={[styles.finishButton, !allSetsCompleted && styles.finishButtonMuted]}
+            style={[styles.finishBtn, allSetsCompleted && styles.finishBtnActive]}
             onPress={finishWorkout}
           >
-            <Text style={styles.finishButtonText}>
-              {allSetsCompleted ? 'Finish Workout' : 'Finish Early'}
+            <Text style={styles.finishBtnText}>
+              {allSetsCompleted ? 'Finish Workout ✓' : 'Finish Early'}
             </Text>
           </TouchableOpacity>
         )}
@@ -265,40 +303,66 @@ function SetRow({
   const [reps, setReps] = useState(defaultReps)
   const [weight, setWeight] = useState(set.weight ?? 0)
 
+  if (set.completed) {
+    return (
+      <View style={styles.setRowDone}>
+        <View style={styles.setNumBadgeDone}>
+          <Text style={styles.setNumTextDone}>{setIdx + 1}</Text>
+        </View>
+        <Text style={styles.setDoneDetail}>{weight} lbs</Text>
+        <Text style={styles.setDoneSep}>×</Text>
+        <Text style={styles.setDoneDetail}>{set.actualReps} reps</Text>
+        <View style={styles.setDoneCheck}>
+          <Text style={styles.setDoneCheckText}>✓</Text>
+        </View>
+      </View>
+    )
+  }
+
   return (
-    <View style={[styles.setRow, set.completed && styles.setRowCompleted]}>
-      <Text style={styles.setCell}>{setIdx + 1}</Text>
-      <Text style={styles.setCell}>{set.targetReps}</Text>
-      <View style={styles.setCellControl}>
+    <View style={styles.setRow}>
+      {/* Set number */}
+      <View style={styles.setNumBadge}>
+        <Text style={styles.setNumText}>{setIdx + 1}</Text>
+      </View>
+
+      {/* Weight stepper */}
+      <View style={styles.stepper}>
         <TouchableOpacity
           onPress={() => setWeight((w) => Math.max(0, w - 5))}
-          style={styles.adjBtn}
+          style={styles.stepBtn}
         >
-          <Text style={styles.adjText}>-</Text>
+          <Text style={styles.stepBtnText}>−</Text>
         </TouchableOpacity>
-        <Text style={styles.adjValue}>{weight}</Text>
-        <TouchableOpacity onPress={() => setWeight((w) => w + 5)} style={styles.adjBtn}>
-          <Text style={styles.adjText}>+</Text>
+        <View style={styles.stepValueWrap}>
+          <Text style={styles.stepValue}>{weight}</Text>
+          <Text style={styles.stepUnit}>lbs</Text>
+        </View>
+        <TouchableOpacity onPress={() => setWeight((w) => w + 5)} style={styles.stepBtn}>
+          <Text style={styles.stepBtnText}>+</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.setCellControl}>
+
+      {/* Reps stepper */}
+      <View style={styles.stepper}>
         <TouchableOpacity
           onPress={() => setReps((r) => Math.max(1, r - 1))}
-          style={styles.adjBtn}
+          style={styles.stepBtn}
         >
-          <Text style={styles.adjText}>-</Text>
+          <Text style={styles.stepBtnText}>−</Text>
         </TouchableOpacity>
-        <Text style={styles.adjValue}>{reps}</Text>
-        <TouchableOpacity onPress={() => setReps((r) => r + 1)} style={styles.adjBtn}>
-          <Text style={styles.adjText}>+</Text>
+        <View style={styles.stepValueWrap}>
+          <Text style={styles.stepValue}>{reps}</Text>
+          <Text style={styles.stepUnit}>reps</Text>
+        </View>
+        <TouchableOpacity onPress={() => setReps((r) => r + 1)} style={styles.stepBtn}>
+          <Text style={styles.stepBtnText}>+</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={[styles.logBtn, set.completed && styles.logBtnDone]}
-        onPress={() => !set.completed && onComplete(reps, weight)}
-        disabled={set.completed}
-      >
-        <Text style={styles.logBtnText}>{set.completed ? 'Done' : 'Log'}</Text>
+
+      {/* Log button */}
+      <TouchableOpacity style={styles.logBtn} onPress={() => onComplete(reps, weight)}>
+        <Text style={styles.logBtnText}>Log</Text>
       </TouchableOpacity>
     </View>
   )
@@ -306,107 +370,212 @@ function SetRow({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+
+  // Rest banner
   restBanner: {
-    backgroundColor: Colors.accent,
-    padding: Spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: '#1D2D44',
     paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.accent,
   },
-  restText: { color: Colors.text, fontWeight: '700', fontSize: 16 },
-  restSkip: { color: Colors.text, fontSize: 14 },
+  restLeft: { alignItems: 'center', width: 44 },
+  restLabel: { color: Colors.accent, fontSize: 9, fontWeight: '800', letterSpacing: 1.5 },
+  restCountdown: { color: Colors.text, fontSize: 20, fontWeight: '800' },
+  restBarTrack: {
+    flex: 1,
+    height: 4,
+    backgroundColor: Colors.surface,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  restBarFill: { height: 4, backgroundColor: Colors.accent, borderRadius: 2 },
+  restSkipBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.muted,
+  },
+  restSkipText: { color: Colors.muted, fontSize: 13, fontWeight: '600' },
+
+  // Layout
   scroll: { flex: 1 },
-  container: { padding: Spacing.md, paddingBottom: Spacing.xxl },
+  container: { padding: Spacing.md, paddingBottom: 40 },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  headerTitle: { color: Colors.text, fontSize: 22, fontWeight: '700' },
-  endButton: { color: Colors.muted, fontSize: 16 },
-  exerciseBlock: {
+  headerDay: { color: Colors.text, fontSize: 24, fontWeight: '800', letterSpacing: 0.5 },
+  headerProgress: { color: Colors.muted, fontSize: 13, marginTop: 2 },
+  endBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.surface,
+  },
+  endBtnText: { color: Colors.muted, fontSize: 14, fontWeight: '600' },
+  loadingText: { color: Colors.muted, textAlign: 'center', marginTop: 40 },
+
+  // Exercise card
+  exerciseCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: Spacing.md,
+    borderRadius: 16,
     marginBottom: Spacing.md,
+    overflow: 'hidden',
   },
   exerciseHeader: {
+    padding: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  exerciseTitleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 4,
   },
-  exerciseName: { color: Colors.text, fontSize: 18, fontWeight: '700', flex: 1 },
-  exerciseCategory: {
-    color: Colors.accent,
-    fontSize: 11,
+  exerciseName: {
+    color: Colors.text,
+    fontSize: 17,
     fontWeight: '700',
-    textTransform: 'uppercase',
+    flex: 1,
+    marginRight: 8,
   },
+  categoryBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: Colors.background,
+  },
+  categoryMain: { backgroundColor: '#1E3A5F' },
+  categoryAccessory: { backgroundColor: '#1A2E1A' },
+  categoryText: { fontSize: 10, fontWeight: '800', letterSpacing: 1, color: Colors.muted },
+  exerciseMeta: { color: Colors.muted, fontSize: 12, marginBottom: 4 },
   exerciseNotes: {
     color: Colors.muted,
-    fontSize: 13,
-    marginBottom: Spacing.sm,
+    fontSize: 12,
     fontStyle: 'italic',
+    marginTop: 2,
   },
-  setsHeader: {
+
+  // Progress bar
+  progressTrack: {
+    height: 2,
+    backgroundColor: Colors.background,
+  },
+  progressFill: {
+    height: 2,
+    backgroundColor: Colors.accent,
+  },
+  progressFillDone: { backgroundColor: Colors.success },
+
+  // Sets
+  setsContainer: { padding: Spacing.sm, gap: 6 },
+
+  // Active set row
+  setRow: {
     flexDirection: 'row',
-    marginBottom: 4,
-    paddingTop: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.background,
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
   },
-  setHeaderCell: {
-    flex: 1,
-    color: Colors.muted,
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  setRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.xs, borderRadius: 8 },
-  setRowCompleted: { opacity: 0.6 },
-  setCell: { flex: 1, color: Colors.text, fontSize: 15, textAlign: 'center' },
-  setCellControl: {
-    flex: 1,
-    flexDirection: 'row',
+  setNumBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
   },
-  adjBtn: {
-    padding: 4,
-    backgroundColor: Colors.background,
-    borderRadius: 6,
-    width: 28,
-    alignItems: 'center',
-  },
-  adjText: { color: Colors.text, fontSize: 16, fontWeight: '700' },
-  adjValue: {
-    color: Colors.text,
-    fontSize: 15,
-    fontWeight: '600',
-    minWidth: 32,
-    textAlign: 'center',
-  },
-  logBtn: {
+  setNumText: { color: Colors.muted, fontSize: 13, fontWeight: '700' },
+
+  // Stepper
+  stepper: {
     flex: 1,
-    backgroundColor: Colors.accent,
-    borderRadius: 6,
-    padding: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 4,
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
-  logBtnDone: { backgroundColor: Colors.success },
-  logBtnText: { color: Colors.text, fontWeight: '700', fontSize: 13 },
-  finishButton: {
-    backgroundColor: Colors.success,
+  stepBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+    backgroundColor: Colors.background,
+  },
+  stepBtnText: { color: Colors.text, fontSize: 20, fontWeight: '300', lineHeight: 22 },
+  stepValueWrap: { alignItems: 'center', flex: 1 },
+  stepValue: { color: Colors.text, fontSize: 17, fontWeight: '700' },
+  stepUnit: { color: Colors.muted, fontSize: 9, marginTop: -2 },
+
+  // Log button
+  logBtn: {
+    backgroundColor: Colors.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 0,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 52,
+  },
+  logBtnText: { color: Colors.text, fontSize: 14, fontWeight: '700' },
+
+  // Completed set row
+  setRowDone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 8,
+    opacity: 0.7,
+  },
+  setNumBadgeDone: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.success + '33',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setNumTextDone: { color: Colors.success, fontSize: 13, fontWeight: '700' },
+  setDoneDetail: { color: Colors.muted, fontSize: 14, fontWeight: '600' },
+  setDoneSep: { color: Colors.muted, fontSize: 12 },
+  setDoneCheck: {
+    marginLeft: 'auto',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.success + '22',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setDoneCheckText: { color: Colors.success, fontSize: 13 },
+
+  // Finish button
+  finishBtn: {
+    backgroundColor: Colors.surface,
     padding: Spacing.md,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: Spacing.md,
+    marginTop: Spacing.sm,
   },
-  finishButtonMuted: { backgroundColor: Colors.surface },
-  finishButtonText: { color: Colors.text, fontSize: 18, fontWeight: '700' },
+  finishBtnActive: { backgroundColor: Colors.success },
+  finishBtnText: { color: Colors.text, fontSize: 17, fontWeight: '700' },
 })

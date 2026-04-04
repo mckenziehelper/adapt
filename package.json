@@ -8,7 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "functions:deploy": "supabase functions deploy --project-ref wrihcdltfwvuobvzjpsc",
-    "functions:test": "node supabase/functions/tests/generate-program.test.js",
+    "functions:test": "node supabase/functions/tests/generate-program.test.mjs",
     "build": "npm run functions:deploy && npx expo run:ios"
   },
   "dependencies": {
@@ -35,6 +35,5 @@
     "babel-preset-expo": "^55.0.15",
     "typescript": "~5.9.2"
   },
-  "private": true,
-  "type": "module"
+  "private": true
 }
