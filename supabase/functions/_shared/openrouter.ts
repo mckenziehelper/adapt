@@ -1,7 +1,7 @@
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1/chat/completions'
 const MODEL = 'openrouter/auto'
 
-export async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+export async function callAI(systemPrompt: string, userPrompt: string, maxTokens = 1400): Promise<string> {
   const apiKey = Deno.env.get('OPENROUTER_API_KEY')
   if (!apiKey) throw new Error('OPENROUTER_API_KEY not set')
 
@@ -20,7 +20,7 @@ export async function callAI(systemPrompt: string, userPrompt: string): Promise<
         { role: 'user', content: userPrompt },
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 1400,
+      max_tokens: maxTokens,
     }),
   })
 

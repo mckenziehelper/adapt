@@ -58,7 +58,7 @@ Respond in this exact JSON format:
   "coach_note": "string — 2-3 sentences explaining why you designed it this way"
 }`
 
-    const raw = await callAI(SYSTEM_PROMPT, userPrompt)
+    const raw = await callAI(SYSTEM_PROMPT, userPrompt, 2500)
     // Strip markdown code fences if model wraps response
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
     const program = JSON.parse(cleaned)
