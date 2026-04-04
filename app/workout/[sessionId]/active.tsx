@@ -5,9 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Alert,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
 import { Colors, Spacing } from '../../../constants/theme'
 import { database, SessionModel, SetModel } from '../../../lib/watermelon'
