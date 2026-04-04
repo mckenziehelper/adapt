@@ -23,7 +23,7 @@ serve(async (req) => {
   }
 
   try {
-    const { training_history, goal, equipment, squat, bench, deadlift, watch_summary, session_time, days_per_week } = await req.json()
+    const { training_history, goal, equipment, squat, bench, deadlift, watch_summary, session_time, days_per_week, notes } = await req.json()
 
     const userPrompt = `Generate a personalized ${days_per_week}-day-per-week lifting program for this user:
 - Training history: ${training_history}
@@ -33,6 +33,7 @@ serve(async (req) => {
 - Current estimated lifts: Squat ${squat}lbs, Bench ${bench}lbs, Deadlift ${deadlift}lbs
 - Apple Watch history summary: ${watch_summary ?? 'null'} (null if not imported)
 - Time per session: ${session_time} minutes
+- Additional context from user: ${notes ?? 'none'}
 
 Respond in this exact JSON format:
 {

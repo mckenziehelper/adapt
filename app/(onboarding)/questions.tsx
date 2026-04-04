@@ -75,7 +75,7 @@ export default function QuestionsScreen() {
       setStep(step + 1)
     } else {
       router.push({
-        pathname: '/(onboarding)/generating',
+        pathname: '/(onboarding)/notes',
         params: {
           training_history: updated.training_history as string,
           goal: updated.goal as string,

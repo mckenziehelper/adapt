@@ -12,6 +12,7 @@ export default function GeneratingScreen() {
     equipment: string
     days_per_week: string
     session_time: string
+    notes: string
   }>()
 
   const called = useRef(false)
@@ -35,6 +36,7 @@ export default function GeneratingScreen() {
           deadlift: '0',
           watch_summary: null,
           session_time: parseInt(params.session_time, 10),
+          notes: params.notes || null,
         },
       })
 
