@@ -7,10 +7,13 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
+import { Q } from '@nozbe/watermelondb'
 import { Colors, Spacing } from '../../constants/theme'
+import { database, SessionModel, SetModel } from '../../lib/watermelon'
 import {
   getStatsThisMonth,
   getTopLifts,
@@ -30,6 +33,22 @@ export default function ProgressScreen() {
   const [calendar, setCalendar] = useState<CalendarDay[]>([])
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  function reload() {
+    setLoading(true)
+    Promise.all([
+      getStatsThisMonth(),
+      getTopLifts(),
+      getRecentSessions(10),
+      getConsistencyCalendar(35),
+    ]).then(([s, l, sess, cal]) => {
+      setStats(s)
+      setLifts(l)
+      setSessions(sess)
+      setCalendar(cal)
+      setLoading(false)
+    })
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -116,6 +135,7 @@ export default function ProgressScreen() {
                 onToggle={() =>
                   setExpandedSession(prev => (prev === session.id ? null : session.id))
                 }
+                onDelete={reload}
               />
             ))}
           </View>
@@ -178,10 +198,12 @@ function SessionCard({
   session,
   expanded,
   onToggle,
+  onDelete,
 }: {
   session: SessionSummary
   expanded: boolean
   onToggle: () => void
+  onDelete: () => void
 }) {
   const date = new Date(session.completedAt)
   const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -228,6 +250,38 @@ function SessionCard({
               ))}
             </View>
           ))}
+          <TouchableOpacity
+            style={styles.deleteSessionBtn}
+            onPress={() =>
+              Alert.alert(
+                'Delete workout?',
+                'This will permanently remove this session and all logged sets.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                      await database.write(async () => {
+                        const setsToDelete = await database
+                          .get<SetModel>('sets')
+                          .query(Q.where('session_id', session.id))
+                          .fetch()
+                        for (const s of setsToDelete) await s.markAsDeleted()
+                        const sessionRecord = await database
+                          .get<SessionModel>('sessions')
+                          .find(session.id)
+                        await sessionRecord.markAsDeleted()
+                      })
+                      onDelete()
+                    },
+                  },
+                ]
+              )
+            }
+          >
+            <Text style={styles.deleteSessionBtnText}>Delete this workout</Text>
+          </TouchableOpacity>
         </View>
       )}
     </TouchableOpacity>
@@ -318,6 +372,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 1,
   },
+
+  deleteSessionBtn: { alignItems: 'center', paddingVertical: Spacing.sm, marginTop: Spacing.xs },
+  deleteSessionBtnText: { color: Colors.muted, fontSize: 13 },
 
   calendar: { gap: 6 },
   calendarRow: { flexDirection: 'row', gap: 6 },

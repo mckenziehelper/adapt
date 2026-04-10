@@ -19,6 +19,7 @@ type ExerciseSet = {
   actualReps: number | null
   weight: number | null
   completed: boolean
+  isPR?: boolean
 }
 
 type ExerciseState = {
@@ -140,12 +141,20 @@ export default function ActiveWorkoutScreen() {
   async function logSet(exerciseIndex: number, setIndex: number, reps: number, weight: number) {
     if (!sessionDbId) return
 
+    // Check if this weight is a PR (beats all previous sets for this exercise in other sessions)
+    const exerciseName = exercises[exerciseIndex].name
+    const allPreviousSets = await database.get<SetModel>('sets').query().fetch()
+    const previousBest = allPreviousSets
+      .filter(s => s.exerciseName === exerciseName && s.sessionId !== sessionDbId)
+      .reduce((max, s) => Math.max(max, s.weight ?? 0), 0)
+    const isPR = weight > 0 && weight > previousBest
+
     setExercises((prev) => {
       const updated = [...prev]
       updated[exerciseIndex] = {
         ...updated[exerciseIndex],
         sets: updated[exerciseIndex].sets.map((s, i) =>
-          i === setIndex ? { ...s, actualReps: reps, weight, completed: true } : s
+          i === setIndex ? { ...s, actualReps: reps, weight, completed: true, isPR } : s
         ),
       }
       return updated
@@ -154,12 +163,12 @@ export default function ActiveWorkoutScreen() {
     await database.write(async () => {
       await database.get<SetModel>('sets').create((record) => {
         record.sessionId = sessionDbId
-        record.exerciseName = exercises[exerciseIndex].name
+        record.exerciseName = exerciseName
         record.setNumber = setIndex + 1
         record.targetReps = exercises[exerciseIndex].sets[setIndex].targetReps
         record.actualReps = reps
         record.weight = weight
-        record.isPR = false
+        record.isPR = isPR
         record.completedAt = Date.now()
         record.synced = false
       })
@@ -367,7 +376,8 @@ function SetRow({
         <Text style={styles.setDoneDetail}>{weight} lbs</Text>
         <Text style={styles.setDoneSep}>×</Text>
         <Text style={styles.setDoneDetail}>{set.actualReps} reps</Text>
-        <View style={styles.setDoneCheck}>
+        {set.isPR && <Text style={styles.prBadge}>PR</Text>}
+        <View style={[styles.setDoneCheck, !set.isPR && { marginLeft: 'auto' }]}>
           <Text style={styles.setDoneCheckText}>✓</Text>
         </View>
       </View>
@@ -637,6 +647,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   setDoneCheckText: { color: Colors.success, fontSize: 13 },
+  prBadge: {
+    color: Colors.success,
+    fontSize: 10,
+    fontWeight: '800',
+    borderWidth: 1,
+    borderColor: Colors.success,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    marginLeft: 'auto',
+  },
 
   // Finish button
   finishBtn: {
