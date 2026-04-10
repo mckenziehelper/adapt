@@ -53,7 +53,11 @@ export async function flushSyncQueue(userId: string) {
         .select('id')
         .single()
 
-      if (!error && data?.id) {
+      if (error) {
+        console.error('Sync: failed to upsert session', session.id, error)
+        continue
+      }
+      if (data?.id) {
         const supabaseId = data.id
         await database.write(async () => {
           await session.update((record) => {
@@ -103,7 +107,11 @@ export async function flushSyncQueue(userId: string) {
         .select('id')
         .single()
 
-      if (!error && data?.id) {
+      if (error) {
+        console.error('Sync: failed to upsert set', set.id, error)
+        continue
+      }
+      if (data?.id) {
         const supabaseId = data.id
         await database.write(async () => {
           await set.update((record) => {
