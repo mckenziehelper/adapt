@@ -71,7 +71,14 @@ export class ProgramModel extends Model {
   @date('updated_at') updatedAt!: Date
 
   get program() {
-    return JSON.parse(this.programJson)
+    try {
+      const parsed = JSON.parse(this.programJson)
+      // Guard against empty objects stored by a bad apply
+      if (parsed && Array.isArray(parsed.sessions) && parsed.sessions.length > 0) return parsed
+      return null
+    } catch {
+      return null
+    }
   }
 }
 

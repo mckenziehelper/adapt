@@ -81,9 +81,9 @@ export default function HomeScreen() {
         ) : (
           <View style={styles.workoutCard}>
             <Text style={styles.workoutFocus}>
-              {program ? 'No session found.' : 'No program loaded yet.'}
+              {parsed ? 'No session found.' : 'No program loaded yet.'}
             </Text>
-            {!program && (
+            {!parsed && (
               <TouchableOpacity
                 style={[styles.startButton, { marginTop: Spacing.md }]}
                 onPress={() => router.push('/(onboarding)/welcome')}

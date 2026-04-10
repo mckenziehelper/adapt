@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
@@ -85,6 +86,17 @@ export default function CoachChatScreen() {
 
   async function applyChanges(proposedProgram: object) {
     if (!programRecord) return
+
+    // Validate the program has the required structure before overwriting
+    const p = proposedProgram as any
+    if (!p?.sessions || !Array.isArray(p.sessions) || p.sessions.length === 0) {
+      Alert.alert(
+        'Could not apply changes',
+        'The coach returned an incomplete program. Try asking again.',
+      )
+      return
+    }
+
     setApplying(true)
     await updateProgram(programRecord.id, proposedProgram)
     const updated = await getActiveProgram()
