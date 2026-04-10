@@ -19,10 +19,12 @@ Rules for program changes:
 - Be conservative — don't add exercises or volume unless asked
 
 Always respond with valid JSON only in this exact format:
-{ "message": "string", "program_changes": { ...complete program object } }
+{ "message": "string", "program_changes": { ...complete program object }, "changes_summary": ["short description of each change, e.g. 'Bench press: 3×5 → 4×5'", "Squat weight: 135lbs → 140lbs"] }
 
 Or if no changes:
-{ "message": "string" }`
+{ "message": "string" }
+
+The changes_summary array must be present whenever program_changes is present. Each item is a short, plain-English description of one change. Maximum 6 items.`
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -82,7 +84,7 @@ serve(async (req) => {
     if (!raw) throw new Error('Empty response from model')
 
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
-    let result: { message: string; program_changes?: object }
+    let result: { message: string; program_changes?: object; changes_summary?: string[] }
     try {
       result = JSON.parse(cleaned)
     } catch {
@@ -92,6 +94,10 @@ serve(async (req) => {
     // Omit empty program_changes so the client doesn't show an apply button
     if (result.program_changes && Object.keys(result.program_changes).length === 0) {
       delete result.program_changes
+    }
+    // Strip empty changes_summary
+    if (Array.isArray(result.changes_summary) && result.changes_summary.length === 0) {
+      delete result.changes_summary
     }
 
     return new Response(JSON.stringify(result), {

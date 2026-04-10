@@ -22,6 +22,7 @@ type Message = {
   role: 'user' | 'assistant'
   content: string
   proposedProgram?: object
+  changesSummary?: string[]
 }
 
 export default function CoachChatScreen() {
@@ -69,6 +70,7 @@ export default function CoachChatScreen() {
           role: 'assistant',
           content: data.message || 'Something went wrong — try again.',
           proposedProgram: data.program_changes,
+          changesSummary: data.changes_summary,
         },
       ])
     } catch (err: any) {
@@ -217,17 +219,29 @@ function ChatBubble({
         <Text style={styles.bubbleText}>{message.content}</Text>
       </View>
       {message.proposedProgram && (
-        <TouchableOpacity
-          style={[styles.applyBtn, applying && styles.applyBtnDisabled]}
-          onPress={() => onApply(message.proposedProgram!)}
-          disabled={applying}
-        >
-          {applying ? (
-            <ActivityIndicator color={Colors.text} size="small" />
-          ) : (
-            <Text style={styles.applyBtnText}>Apply these changes →</Text>
+        <View style={styles.proposedChangesWrap}>
+          {message.changesSummary && message.changesSummary.length > 0 && (
+            <View style={styles.changesList}>
+              {message.changesSummary.map((item, i) => (
+                <View key={i} style={styles.changesListItem}>
+                  <Text style={styles.changesListDot}>·</Text>
+                  <Text style={styles.changesListText}>{item}</Text>
+                </View>
+              ))}
+            </View>
           )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.applyBtn, applying && styles.applyBtnDisabled]}
+            onPress={() => onApply(message.proposedProgram!)}
+            disabled={applying}
+          >
+            {applying ? (
+              <ActivityIndicator color={Colors.text} size="small" />
+            ) : (
+              <Text style={styles.applyBtnText}>Apply these changes →</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   )
@@ -356,4 +370,28 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { backgroundColor: Colors.surface },
   sendBtnText: { color: Colors.text, fontSize: 20, fontWeight: '700' },
+
+  proposedChangesWrap: { marginTop: 6 },
+  changesList: {
+    backgroundColor: Colors.background,
+    borderRadius: 10,
+    padding: Spacing.sm,
+    marginBottom: 8,
+  },
+  changesListItem: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  changesListDot: {
+    color: Colors.accent,
+    fontSize: 16,
+    marginRight: 6,
+    lineHeight: 20,
+  },
+  changesListText: {
+    color: Colors.text,
+    fontSize: 13,
+    lineHeight: 20,
+    flex: 1,
+  },
 })
