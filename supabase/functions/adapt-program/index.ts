@@ -73,7 +73,8 @@ Analyze what happened and respond in this exact JSON format:
     "intervention": "string — what you're doing about it"
   },
   "weekly_coach_message": "string — 3-4 sentences. Conversational, specific, honest. Reference actual things that happened this week.",
-  "next_week_focus": "string — one sentence priority for next week"
+  "next_week_focus": "string — one sentence priority for next week",
+  "adapted_program": "the full updated program object with all changes applied — same structure as the current program JSON but with the changes incorporated"
 }`
 
     const raw = await callAI(SYSTEM_PROMPT, userPrompt)

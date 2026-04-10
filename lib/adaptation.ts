@@ -23,6 +23,7 @@ export type AdaptationResult = {
   }
   weekly_coach_message: string
   next_week_focus: string
+  adapted_program?: object
 }
 
 /**
@@ -105,7 +106,10 @@ export async function runWeeklyAdaptation(
   }
 
   // --- 6. Apply changes to program ---
-  await saveProgram(currentProgram.program, result.weekly_coach_message)
+  // Use the full adapted_program returned by the edge function if available.
+  // Falls back to the current program (coach note updated only) if the AI didn't return one.
+  const programToSave = result.adapted_program ?? currentProgram.program
+  await saveProgram(programToSave, result.weekly_coach_message)
 
   // --- 7. Persist coach message to AsyncStorage ---
   await AsyncStorage.setItem('coach_message', result.weekly_coach_message)
