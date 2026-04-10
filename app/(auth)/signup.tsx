@@ -25,6 +25,10 @@ export default function SignupScreen() {
       Alert.alert('Missing fields', 'Please fill in all fields.')
       return
     }
+    if (!email.includes('@')) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.')
+      return
+    }
     if (password !== confirm) {
       Alert.alert('Password mismatch', 'Passwords do not match.')
       return
@@ -34,13 +38,20 @@ export default function SignupScreen() {
       return
     }
     setLoading(true)
-    const { error } = await supabase.auth.signUp({ email: email.trim(), password })
+    const { data, error } = await supabase.auth.signUp({ email: email.trim(), password })
     setLoading(false)
     if (error) {
       Alert.alert('Sign up failed', error.message)
       return
     }
-    // Supabase auto-signs in after signup; onAuthStateChange in _layout handles redirect.
+    if (!data.session) {
+      // Email confirmation required (default Supabase setting)
+      Alert.alert(
+        'Check your email',
+        'We sent you a confirmation link. Tap it to finish signing up, then come back and sign in.',
+      )
+    }
+    // If data.session exists, onAuthStateChange in _layout handles redirect automatically
   }
 
   return (

@@ -24,6 +24,10 @@ export default function LoginScreen() {
       Alert.alert('Missing fields', 'Please enter your email and password.')
       return
     }
+    if (!email.includes('@')) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.')
+      return
+    }
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
     setLoading(false)
