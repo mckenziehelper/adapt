@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import NetInfo from '@react-native-community/netinfo'
 import { Colors, Spacing } from '../../constants/theme'
 import { getActiveProgram } from '../../lib/programs'
@@ -12,13 +13,15 @@ export default function HomeScreen() {
   const [isOffline, setIsOffline] = useState(false)
   const [nextSessionDay, setNextSessionDay] = useState<string>('A')
   const [showDescription, setShowDescription] = useState(false)
+  const [coachMessage, setCoachMessage] = useState<string | null>(null)
+  const [coachMessageDate, setCoachMessageDate] = useState<string | null>(null)
 
   useEffect(() => {
     getActiveProgram().then((p) => {
       setProgram(p)
       if (p) {
         const parsed = p.program
-        setNextSessionDay(parsed.sessions?.[0]?.day ?? 'A')
+        setNextSessionDay(parsed?.sessions?.[0]?.day ?? 'A')
       }
     })
 
@@ -29,8 +32,28 @@ export default function HomeScreen() {
     return () => unsubscribe()
   }, [])
 
+  // Reload coach message each time the tab comes into focus
+  // (so it appears immediately after Weekly Review completes)
+  useFocusEffect(
+    useCallback(() => {
+      async function loadCoachMessage() {
+        const msg = await AsyncStorage.getItem('coach_message')
+        const date = await AsyncStorage.getItem('coach_message_date')
+        setCoachMessage(msg)
+        setCoachMessageDate(date)
+      }
+      loadCoachMessage()
+    }, []),
+  )
+
   const parsed = program?.program
   const todaySession = parsed?.sessions?.find((s: any) => s.day === nextSessionDay)
+
+  function formatMessageDate(isoDate: string | null): string {
+    if (!isoDate) return ''
+    const d = new Date(isoDate)
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -94,6 +117,23 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {coachMessage && (
+          <TouchableOpacity
+            style={styles.coachCard}
+            onPress={() => router.push('/coach-message')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.coachLabel}>FROM YOUR COACH</Text>
+            {coachMessageDate && (
+              <Text style={styles.coachDate}>{formatMessageDate(coachMessageDate)}</Text>
+            )}
+            <Text style={styles.coachPreview} numberOfLines={3}>
+              {coachMessage}
+            </Text>
+            <Text style={styles.coachReadMore}>Read more →</Text>
+          </TouchableOpacity>
+        )}
+
         {parsed?.program_name && (
           <TouchableOpacity
             style={styles.programBadge}
@@ -144,6 +184,33 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: Spacing.xs,
   },
+  coachCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.success,
+  },
+  coachLabel: {
+    color: Colors.success,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: Spacing.xs,
+  },
+  coachDate: {
+    color: Colors.muted,
+    fontSize: 12,
+    marginBottom: Spacing.xs,
+  },
+  coachPreview: {
+    color: Colors.text,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: Spacing.sm,
+  },
+  coachReadMore: { color: Colors.accent, fontSize: 13, fontWeight: '600' },
   programBadge: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
