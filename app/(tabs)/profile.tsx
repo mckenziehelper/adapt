@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Colors, Spacing } from '../../constants/theme'
 import { runWeeklyAdaptation } from '../../lib/adaptation'
 
@@ -11,13 +12,9 @@ export default function ProfileScreen() {
   async function handleWeeklyReview() {
     setAdapting(true)
     try {
-      // goal and weeksOnApp are hardcoded here; extend with user profile store when available.
-      await runWeeklyAdaptation('build strength', 1)
-      Alert.alert(
-        'Adaptation complete',
-        'Your program has been updated. Check the home screen for your coach message.',
-        [{ text: 'View', onPress: () => router.replace('/(tabs)/') }],
-      )
+      const result = await runWeeklyAdaptation('build strength', 1)
+      await AsyncStorage.setItem('pending_adaptation', JSON.stringify(result))
+      router.push('/review-adaptation')
     } catch (err: any) {
       Alert.alert('Adaptation failed', err?.message ?? 'Something went wrong. Try again.')
     } finally {

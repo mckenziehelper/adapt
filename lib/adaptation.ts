@@ -105,16 +105,27 @@ export async function runWeeklyAdaptation(
     throw new Error('Adaptation response missing expected fields.')
   }
 
-  // --- 6. Apply changes to program ---
-  // Use the full adapted_program returned by the edge function if available.
-  // Falls back to the current program (coach note updated only) if the AI didn't return one.
-  const programToSave = result.adapted_program ?? currentProgram.program
-  await saveProgram(programToSave, result.weekly_coach_message)
+  return result
+}
 
-  // --- 7. Persist coach message to AsyncStorage ---
+/**
+ * Apply an adaptation result: save the adapted program and persist the coach message.
+ * Call this after the user confirms they want to apply the changes.
+ */
+export async function applyAdaptation(result: AdaptationResult): Promise<void> {
+  const currentProgram = await getActiveProgram()
+  const programToSave = result.adapted_program ?? (currentProgram?.program ?? {})
+  await saveProgram(programToSave, result.weekly_coach_message)
   await AsyncStorage.setItem('coach_message', result.weekly_coach_message)
   await AsyncStorage.setItem('coach_message_date', new Date().toISOString())
   await AsyncStorage.setItem('next_week_focus', result.next_week_focus ?? '')
+}
 
-  return result
+/**
+ * Persist the coach message to AsyncStorage without changing the program.
+ */
+export async function saveCoachMessageOnly(result: AdaptationResult): Promise<void> {
+  await AsyncStorage.setItem('coach_message', result.weekly_coach_message)
+  await AsyncStorage.setItem('coach_message_date', new Date().toISOString())
+  await AsyncStorage.setItem('next_week_focus', result.next_week_focus ?? '')
 }
