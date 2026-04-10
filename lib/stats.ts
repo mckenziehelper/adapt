@@ -72,7 +72,10 @@ export async function getStatsThisMonth(): Promise<{
   const monthStart = startOfMonth()
   const sessionsThisMonth = completed.filter(s => s.completedAt >= monthStart).length
 
-  const prCount = allSets.filter(s => s.isPR).length
+  const thisMonthSessionIds = new Set(
+    completed.filter(s => s.completedAt >= monthStart).map(s => s.id)
+  )
+  const prCount = allSets.filter(s => s.isPR && thisMonthSessionIds.has(s.sessionId)).length
 
   // Consecutive weeks ending at the current week
   const completedWeeks = new Set(completed.map(s => weekKey(s.completedAt)))
@@ -99,27 +102,30 @@ export async function getTopLifts(): Promise<LiftSummary[]> {
     if (s.completedAt) sessionTs[s.id] = s.completedAt
   }
 
-  // exercise → [{ timestamp, weight }]
-  const byExercise: Record<string, { ts: number; weight: number }[]> = {}
+  // exercise → [{ timestamp, weight, sessionId }]
+  const byExercise: Record<string, { ts: number; weight: number; sid: string }[]> = {}
   for (const set of allSets) {
     const ts = sessionTs[set.sessionId]
     if (!ts || !set.weight) continue
     if (!byExercise[set.exerciseName]) byExercise[set.exerciseName] = []
-    byExercise[set.exerciseName].push({ ts, weight: set.weight })
+    byExercise[set.exerciseName].push({ ts, weight: set.weight, sid: set.sessionId })
   }
 
   const results: LiftSummary[] = []
   for (const [name, entries] of Object.entries(byExercise)) {
-    // Max weight per session
-    const bySession: Record<number, number> = {}
+    // Max weight per session, keyed by sessionId
+    const bySessionId: Record<string, number> = {}
     for (const e of entries) {
-      bySession[e.ts] = Math.max(bySession[e.ts] ?? 0, e.weight)
+      bySessionId[e.sid] = Math.max(bySessionId[e.sid] ?? 0, e.weight)
     }
-    const sorted = Object.entries(bySession).sort((a, b) => Number(b[0]) - Number(a[0]))
-    const bestWeight = Number(sorted[0][1])
+    // Build sid → ts lookup for sorting
+    const sidToTs: Record<string, number> = {}
+    for (const e of entries) { sidToTs[e.sid] = e.ts }
+    const sorted = Object.entries(bySessionId).sort((a, b) => (sidToTs[b[0]] ?? 0) - (sidToTs[a[0]] ?? 0))
+    const bestWeight = sorted[0][1]
     let trend: 'up' | 'flat' | null = null
     if (sorted.length >= 2) {
-      trend = bestWeight > Number(sorted[1][1]) ? 'up' : 'flat'
+      trend = bestWeight > sorted[1][1] ? 'up' : 'flat'
     }
     results.push({ exerciseName: name, bestWeight, trend })
   }
@@ -208,18 +214,17 @@ export async function getLiftHistory(exerciseName: string): Promise<LiftSession[
     s => s.exerciseName === exerciseName && sessionTs[s.sessionId]
   )
 
-  const bySession: Record<number, SetModel[]> = {}
+  const bySessionId: Record<string, SetModel[]> = {}
   for (const set of exerciseSets) {
-    const ts = sessionTs[set.sessionId]
-    if (!bySession[ts]) bySession[ts] = []
-    bySession[ts].push(set)
+    if (!bySessionId[set.sessionId]) bySessionId[set.sessionId] = []
+    bySessionId[set.sessionId].push(set)
   }
 
-  return Object.entries(bySession)
-    .sort((a, b) => Number(b[0]) - Number(a[0]))
+  return Object.entries(bySessionId)
+    .sort((a, b) => (sessionTs[b[0]] ?? 0) - (sessionTs[a[0]] ?? 0))
     .slice(0, 8)
-    .map(([ts, sets]) => ({
-      date: Number(ts),
+    .map(([sid, sets]) => ({
+      date: sessionTs[sid],
       maxWeight: Math.max(...sets.map(s => s.weight ?? 0)),
       sets: sets
         .sort((a, b) => a.setNumber - b.setNumber)
