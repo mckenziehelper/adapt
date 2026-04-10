@@ -56,7 +56,7 @@ export default function HomeScreen() {
               style={styles.startButton}
               onPress={() =>
                 router.push({
-                  pathname: '/workout/[sessionId]/active',
+                  pathname: '/workout/[sessionId]/checkin',
                   params: {
                     sessionId: `${nextSessionDay}-${Date.now()}`,
                     sessionDay: nextSessionDay,

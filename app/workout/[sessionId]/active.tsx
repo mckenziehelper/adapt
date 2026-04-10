@@ -30,10 +30,15 @@ type ExerciseState = {
 }
 
 export default function ActiveWorkoutScreen() {
-  const { sessionId, sessionDay } = useLocalSearchParams<{
-    sessionId: string
-    sessionDay: string
-  }>()
+  const { sessionId, sessionDay, adjustedSession, energyCheckin, soreAreas, timeAvailable } =
+    useLocalSearchParams<{
+      sessionId: string
+      sessionDay: string
+      adjustedSession?: string      // JSON string of AI-adjusted session, if any
+      energyCheckin?: string        // '1'–'5'
+      soreAreas?: string            // JSON string array, e.g. '["Lower back"]'
+      timeAvailable?: string        // '30', '45', or '60'
+    }>()
 
   const [exercises, setExercises] = useState<ExerciseState[]>([])
   const [sessionDbId, setSessionDbId] = useState<string | null>(null)
@@ -56,8 +61,19 @@ export default function ActiveWorkoutScreen() {
     const program = await getActiveProgram()
     if (!program) return
 
-    const parsed = program.program
-    const session = parsed.sessions?.find((s: any) => s.day === sessionDay)
+    // Use AI-adjusted session if provided, otherwise fall back to program plan
+    let session: any
+    if (adjustedSession) {
+      try {
+        session = JSON.parse(adjustedSession)
+      } catch {
+        // fall through to program lookup
+      }
+    }
+    if (!session) {
+      const parsed = program.program
+      session = parsed.sessions?.find((s: any) => s.day === sessionDay)
+    }
     if (!session) return
 
     const exerciseStates: ExerciseState[] = session.exercises.map((ex: any) => ({
@@ -82,6 +98,10 @@ export default function ActiveWorkoutScreen() {
         record.sessionDay = sessionDay
         record.plannedJson = JSON.stringify(session)
         record.synced = false
+        // Write check-in data if provided
+        if (energyCheckin) record.energyCheckin = parseInt(energyCheckin, 10)
+        if (soreAreas) record.soreAreas = soreAreas
+        if (timeAvailable) record.timeAvailable = parseInt(timeAvailable, 10)
       })
     })
 
