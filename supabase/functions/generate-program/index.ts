@@ -52,7 +52,8 @@ Respond in this exact JSON format:
           "starting_weight": number,
           "progression": "string — e.g. +5lbs per session or +2.5lbs weekly",
           "rest_seconds": number,
-          "notes": "string — coaching cue or substitution note"
+          "notes": "string — coaching cue or substitution note",
+          "how_to": "string — 2-3 sentences: how to perform the lift correctly, what muscles it works, one key form cue to keep in mind"
         }
       ]
     }

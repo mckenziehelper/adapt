@@ -27,6 +27,7 @@ type ExerciseState = {
   sets: ExerciseSet[]
   restSeconds: number
   notes: string
+  howTo: string
 }
 
 export default function ActiveWorkoutScreen() {
@@ -42,6 +43,7 @@ export default function ActiveWorkoutScreen() {
 
   const [exercises, setExercises] = useState<ExerciseState[]>([])
   const [sessionDbId, setSessionDbId] = useState<string | null>(null)
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null)
   const [startTime] = useState(Date.now())
   const [restTimer, setRestTimer] = useState<{
     active: boolean
@@ -81,6 +83,7 @@ export default function ActiveWorkoutScreen() {
       category: ex.category,
       restSeconds: ex.rest_seconds ?? 90,
       notes: ex.notes ?? '',
+      howTo: ex.how_to ?? '',
       sets: Array.from({ length: ex.sets }, (_: unknown, i: number) => ({
         setNumber: i + 1,
         targetReps: ex.reps,
@@ -245,7 +248,17 @@ export default function ActiveWorkoutScreen() {
           return (
             <View key={exercise.name} style={styles.exerciseCard}>
               {/* Exercise header */}
-              <View style={styles.exerciseHeader}>
+              <TouchableOpacity
+                style={styles.exerciseHeader}
+                onPress={() =>
+                  exercise.howTo
+                    ? setExpandedExercise(prev =>
+                        prev === exercise.name ? null : exercise.name
+                      )
+                    : null
+                }
+                activeOpacity={exercise.howTo ? 0.7 : 1}
+              >
                 <View style={styles.exerciseTitleRow}>
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                   <View
@@ -263,11 +276,15 @@ export default function ActiveWorkoutScreen() {
                 <Text style={styles.exerciseMeta}>
                   {exercise.sets.length} sets · {exercise.sets[0]?.targetReps} reps ·{' '}
                   {exercise.restSeconds}s rest
+                  {exercise.howTo ? (expandedExercise === exercise.name ? '  ▲' : '  ▼') : ''}
                 </Text>
+                {expandedExercise === exercise.name && exercise.howTo ? (
+                  <Text style={styles.exerciseHowTo}>{exercise.howTo}</Text>
+                ) : null}
                 {exercise.notes ? (
                   <Text style={styles.exerciseNotes}>{exercise.notes}</Text>
                 ) : null}
-              </View>
+              </TouchableOpacity>
 
               {/* Completion bar */}
               <View style={styles.progressTrack}>
@@ -479,6 +496,13 @@ const styles = StyleSheet.create({
   categoryAccessory: { backgroundColor: '#1A2E1A' },
   categoryText: { fontSize: 10, fontWeight: '800', letterSpacing: 1, color: Colors.muted },
   exerciseMeta: { color: Colors.muted, fontSize: 12, marginBottom: 4 },
+  exerciseHowTo: {
+    color: Colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: Spacing.sm,
+    marginBottom: 2,
+  },
   exerciseNotes: {
     color: Colors.muted,
     fontSize: 12,
