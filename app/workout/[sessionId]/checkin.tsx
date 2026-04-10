@@ -180,7 +180,12 @@ export default function CheckinScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <Text style={styles.heading}>Quick check-in</Text>
+          <View style={styles.headingRow}>
+            <Text style={styles.heading}>Quick check-in</Text>
+            <TouchableOpacity onPress={() => navigateToWorkout(null)} style={styles.skipBtn}>
+              <Text style={styles.skipText}>Skip</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.subheading}>30 seconds — helps your coach adjust today's session.</Text>
 
           {/* Energy */}
@@ -251,7 +256,10 @@ export default function CheckinScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { padding: Spacing.lg },
-  heading: { color: Colors.text, fontSize: 26, fontWeight: '800', marginBottom: 6 },
+  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  heading: { color: Colors.text, fontSize: 26, fontWeight: '800' },
+  skipBtn: { paddingVertical: 4, paddingHorizontal: 8 },
+  skipText: { color: Colors.muted, fontSize: 15 },
   subheading: { color: Colors.muted, fontSize: 14, marginBottom: Spacing.xl },
 
   questionLabel: {
