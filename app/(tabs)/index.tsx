@@ -11,6 +11,7 @@ export default function HomeScreen() {
   const [program, setProgram] = useState<ProgramModel | null>(null)
   const [isOffline, setIsOffline] = useState(false)
   const [nextSessionDay, setNextSessionDay] = useState<string>('A')
+  const [showDescription, setShowDescription] = useState(false)
 
   useEffect(() => {
     getActiveProgram().then((p) => {
@@ -44,7 +45,17 @@ export default function HomeScreen() {
         {todaySession ? (
           <View style={styles.workoutCard}>
             <Text style={styles.workoutLabel}>DAY {todaySession.day}</Text>
-            <Text style={styles.workoutFocus}>{todaySession.focus}</Text>
+            <TouchableOpacity
+              onPress={() => todaySession.description ? setShowDescription(v => !v) : null}
+              activeOpacity={todaySession.description ? 0.7 : 1}
+            >
+              <Text style={styles.workoutFocus}>
+                {todaySession.focus}{todaySession.description ? (showDescription ? '  ▲' : '  ▼') : ''}
+              </Text>
+              {showDescription && todaySession.description ? (
+                <Text style={styles.workoutDescription}>{todaySession.description}</Text>
+              ) : null}
+            </TouchableOpacity>
             <Text style={styles.exerciseList}>
               {todaySession.exercises
                 ?.slice(0, 3)
@@ -126,6 +137,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startButtonText: { color: Colors.text, fontSize: 16, fontWeight: '700' },
+  workoutDescription: {
+    color: Colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 6,
+    marginBottom: Spacing.xs,
+  },
   programBadge: {
     backgroundColor: Colors.surface,
     borderRadius: 12,

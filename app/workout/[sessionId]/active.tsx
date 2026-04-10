@@ -43,6 +43,9 @@ export default function ActiveWorkoutScreen() {
 
   const [exercises, setExercises] = useState<ExerciseState[]>([])
   const [sessionDbId, setSessionDbId] = useState<string | null>(null)
+  const [sessionFocus, setSessionFocus] = useState<string>('')
+  const [sessionDescription, setSessionDescription] = useState<string>('')
+  const [showDescription, setShowDescription] = useState(false)
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null)
   const [startTime] = useState(Date.now())
   const [restTimer, setRestTimer] = useState<{
@@ -77,6 +80,9 @@ export default function ActiveWorkoutScreen() {
       session = parsed.sessions?.find((s: any) => s.day === sessionDay)
     }
     if (!session) return
+
+    setSessionFocus(session.focus ?? '')
+    setSessionDescription(session.description ?? '')
 
     const exerciseStates: ExerciseState[] = session.exercises.map((ex: any) => ({
       name: ex.name,
@@ -219,12 +225,24 @@ export default function ActiveWorkoutScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <TouchableOpacity
+            style={styles.headerLeft}
+            onPress={() => sessionDescription ? setShowDescription(v => !v) : null}
+            activeOpacity={sessionDescription ? 0.7 : 1}
+          >
             <Text style={styles.headerDay}>DAY {sessionDay}</Text>
+            {sessionFocus ? (
+              <Text style={styles.headerFocus}>
+                {sessionFocus}{sessionDescription ? (showDescription ? '  ▲' : '  ▼') : ''}
+              </Text>
+            ) : null}
             <Text style={styles.headerProgress}>
               {completedSetsCount} / {totalSetsCount} sets
             </Text>
-          </View>
+            {showDescription ? (
+              <Text style={styles.headerDescription}>{sessionDescription}</Text>
+            ) : null}
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() =>
               Alert.alert('End workout?', 'Progress will be saved.', [
@@ -447,11 +465,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: Spacing.lg,
   },
+  headerLeft: { flex: 1, marginRight: Spacing.sm },
   headerDay: { color: Colors.text, fontSize: 24, fontWeight: '800', letterSpacing: 0.5 },
+  headerFocus: { color: Colors.accent, fontSize: 13, fontWeight: '600', marginTop: 3 },
   headerProgress: { color: Colors.muted, fontSize: 13, marginTop: 2 },
+  headerDescription: {
+    color: Colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: Spacing.sm,
+  },
   endBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,

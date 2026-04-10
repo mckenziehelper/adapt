@@ -43,6 +43,7 @@ Respond in this exact JSON format:
     {
       "day": "A",
       "focus": "string — e.g. Lower Body Strength",
+      "description": "string — 2-3 sentences: what this workout builds, what to focus on mentally, what to expect from the session",
       "exercises": [
         {
           "name": "string",
