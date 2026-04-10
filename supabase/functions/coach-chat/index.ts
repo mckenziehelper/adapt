@@ -68,19 +68,31 @@ serve(async (req) => {
         model: MODEL,
         messages,
         response_format: { type: 'json_object' },
-        max_tokens: 3000,
+        max_tokens: 6000,
       }),
     })
 
     if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`OpenRouter error ${response.status}: ${error}`)
+      const errText = await response.text()
+      throw new Error(`OpenRouter error ${response.status}: ${errText}`)
     }
 
     const data = await response.json()
-    const raw = data.choices[0].message.content
+    const raw = data.choices[0]?.message?.content
+    if (!raw) throw new Error('Empty response from model')
+
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
-    const result = JSON.parse(cleaned)
+    let result: { message: string; program_changes?: object }
+    try {
+      result = JSON.parse(cleaned)
+    } catch {
+      throw new Error(`Invalid JSON from model: ${cleaned.slice(0, 200)}`)
+    }
+
+    // Omit empty program_changes so the client doesn't show an apply button
+    if (result.program_changes && Object.keys(result.program_changes).length === 0) {
+      delete result.program_changes
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
