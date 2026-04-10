@@ -7,7 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "functions:deploy": "supabase functions deploy generate-program --project-ref wrihcdltfwvuobvzjpsc && supabase functions deploy adjust-session --project-ref wrihcdltfwvuobvzjpsc && supabase functions deploy coach-chat --project-ref wrihcdltfwvuobvzjpsc",
+    "functions:deploy": "supabase functions deploy generate-program --project-ref wrihcdltfwvuobvzjpsc && supabase functions deploy adjust-session --project-ref wrihcdltfwvuobvzjpsc && supabase functions deploy coach-chat --project-ref wrihcdltfwvuobvzjpsc && supabase functions deploy adapt-program --project-ref wrihcdltfwvuobvzjpsc",
     "functions:test": "node supabase/functions/tests/generate-program.test.mjs",
     "build": "npm run functions:deploy && npx expo run:ios"
   },
