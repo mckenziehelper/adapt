@@ -5,11 +5,14 @@ import { router } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Colors, Spacing } from '../../constants/theme'
 import { runWeeklyAdaptation } from '../../lib/adaptation'
+import { requireAuthAndPro } from '../../lib/auth-gate'
 
 export default function ProfileScreen() {
   const [adapting, setAdapting] = useState(false)
 
   async function handleWeeklyReview() {
+    const allowed = await requireAuthAndPro()
+    if (!allowed) return
     setAdapting(true)
     try {
       const result = await runWeeklyAdaptation('build strength', 1)
@@ -54,7 +57,10 @@ export default function ProfileScreen() {
 
         <View style={styles.divider} />
 
-        <TouchableOpacity style={styles.row} onPress={() => router.push('/(onboarding)/welcome')}>
+        <TouchableOpacity style={styles.row} onPress={async () => {
+          const allowed = await requireAuthAndPro()
+          if (allowed) router.push('/(onboarding)/welcome')
+        }}>
           <View>
             <Text style={styles.rowTitle}>Generate New Program</Text>
             <Text style={styles.rowSub}>Start fresh with updated goals</Text>

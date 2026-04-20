@@ -14,6 +14,7 @@ import { router, useFocusEffect } from 'expo-router'
 import { Colors, Spacing } from '../../constants/theme'
 import { getActiveProgram, updateProgram } from '../../lib/programs'
 import { ProgramModel } from '../../lib/watermelon'
+import { requireAuthAndPro } from '../../lib/auth-gate'
 
 type Exercise = {
   name: string
@@ -99,7 +100,10 @@ export default function ProgramScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.coachBtn}
-          onPress={() => router.push('/program/coach-chat')}
+          onPress={async () => {
+            const allowed = await requireAuthAndPro()
+            if (allowed) router.push('/program/coach-chat')
+          }}
         >
           <Text style={styles.coachBtnText}>Chat with Coach</Text>
         </TouchableOpacity>
