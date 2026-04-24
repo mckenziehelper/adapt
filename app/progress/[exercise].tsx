@@ -1,4 +1,3 @@
-// app/progress/[exercise].tsx
 import React, { useState, useCallback } from 'react'
 import {
   View,
@@ -7,11 +6,113 @@ import {
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router'
+import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg'
 import { Colors, Spacing } from '../../constants/theme'
 import { getLiftHistory, LiftSession } from '../../lib/stats'
+
+function LiftChart({ sessions }: { sessions: LiftSession[] }) {
+  const { width } = useWindowDimensions()
+  const chartWidth = width - Spacing.lg * 2 - Spacing.md * 2
+  const chartHeight = 140
+  const paddingTop = 24
+  const paddingBottom = 28
+  const paddingLeft = 40
+  const paddingRight = 16
+
+  const innerW = chartWidth - paddingLeft - paddingRight
+  const innerH = chartHeight - paddingTop - paddingBottom
+
+  const weights = sessions.map(s => s.maxWeight)
+  const minW = Math.min(...weights)
+  const maxW = Math.max(...weights)
+  const range = maxW - minW || 1
+
+  function x(i: number) {
+    return paddingLeft + (sessions.length === 1 ? innerW / 2 : (i / (sessions.length - 1)) * innerW)
+  }
+  function y(weight: number) {
+    return paddingTop + innerH - ((weight - minW) / range) * innerH
+  }
+
+  // Build SVG path
+  const points = sessions.map((s, i) => ({ px: x(i), py: y(s.maxWeight), session: s }))
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.px} ${p.py}`).join(' ')
+
+  // Y-axis labels (3 ticks)
+  const yTicks = [minW, Math.round((minW + maxW) / 2), maxW]
+
+  // X-axis date labels
+  const dateLabels = sessions.map(s =>
+    new Date(s.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+  )
+
+  const prWeight = Math.max(...weights)
+
+  return (
+    <Svg width={chartWidth} height={chartHeight}>
+      {/* Y-axis ticks */}
+      {yTicks.map((w, i) => (
+        <React.Fragment key={i}>
+          <Line
+            x1={paddingLeft - 4}
+            y1={y(w)}
+            x2={chartWidth - paddingRight}
+            y2={y(w)}
+            stroke={Colors.surface}
+            strokeWidth={1}
+          />
+          <SvgText
+            x={paddingLeft - 8}
+            y={y(w) + 4}
+            fontSize={9}
+            fill={Colors.muted}
+            textAnchor="end"
+          >
+            {w}
+          </SvgText>
+        </React.Fragment>
+      ))}
+
+      {/* Line */}
+      <Path
+        d={pathD}
+        stroke={Colors.accent}
+        strokeWidth={2}
+        fill="none"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+
+      {/* Dots + date labels */}
+      {points.map((p, i) => {
+        const isPR = p.session.maxWeight === prWeight
+        return (
+          <React.Fragment key={i}>
+            <Circle
+              cx={p.px}
+              cy={p.py}
+              r={isPR ? 5 : 4}
+              fill={isPR ? Colors.success : Colors.accent}
+            />
+            <SvgText
+              x={p.px}
+              y={chartHeight - 4}
+              fontSize={8}
+              fill={Colors.muted}
+              textAnchor="middle"
+            >
+              {dateLabels[i]}
+            </SvgText>
+          </React.Fragment>
+        )
+      })}
+    </Svg>
+  )
+}
 
 export default function ExerciseDrillDown() {
   const { exercise } = useLocalSearchParams<{ exercise: string }>()
@@ -29,15 +130,12 @@ export default function ExerciseDrillDown() {
     }, [exerciseName])
   )
 
+  const chartSessions = [...history].reverse()
   const prWeight = history.length > 0 ? Math.max(...history.map(s => s.maxWeight)) : 0
   const prSession = history.find(s => s.maxWeight === prWeight)
   const prDate = prSession
     ? new Date(prSession.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : ''
-
-  const chartSessions = [...history].reverse()
-  const maxWeight = prWeight || 1
-  const BAR_MAX_HEIGHT = 80
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -64,36 +162,21 @@ export default function ExerciseDrillDown() {
             {prDate ? <Text style={styles.prDate}>{prDate}</Text> : null}
           </View>
 
-          {/* Bar chart */}
+          {/* Line chart */}
           <View style={styles.chartCard}>
             <Text style={styles.chartLabel}>
-              WEIGHT OVER TIME (last {chartSessions.length} sessions)
+              WEIGHT OVER TIME — LAST {chartSessions.length} SESSIONS
             </Text>
-            <View style={styles.chart}>
-              {chartSessions.map((session, i) => {
-                const height = Math.max(
-                  8,
-                  Math.round((session.maxWeight / maxWeight) * BAR_MAX_HEIGHT)
-                )
-                const isPR = session.maxWeight === prWeight
-                const dateStr = new Date(session.date).toLocaleDateString('en-US', {
-                  month: 'numeric',
-                  day: 'numeric',
-                })
-                return (
-                  <View key={i} style={styles.barWrapper}>
-                    <Text style={styles.barWeight}>{session.maxWeight}</Text>
-                    <View
-                      style={[
-                        styles.bar,
-                        { height },
-                        isPR ? styles.barPR : styles.barNormal,
-                      ]}
-                    />
-                    <Text style={styles.barDate}>{dateStr}</Text>
-                  </View>
-                )
-              })}
+            <LiftChart sessions={chartSessions} />
+            <View style={styles.chartLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: Colors.success }]} />
+                <Text style={styles.legendText}>PR</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: Colors.accent }]} />
+                <Text style={styles.legendText}>Session max</Text>
+              </View>
             </View>
           </View>
 
@@ -180,19 +263,15 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginBottom: Spacing.md,
   },
-  chart: {
+  chartLegend: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-    height: 120,
-    paddingTop: 24,
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+    justifyContent: 'flex-end',
   },
-  barWrapper: { alignItems: 'center', flex: 1, gap: 4 },
-  barWeight: { color: Colors.muted, fontSize: 8, fontWeight: '600' },
-  bar: { width: '60%', borderRadius: 4, minHeight: 8 },
-  barNormal: { backgroundColor: Colors.accent },
-  barPR: { backgroundColor: Colors.success },
-  barDate: { color: Colors.muted, fontSize: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { color: Colors.muted, fontSize: 10 },
 
   sectionLabel: {
     color: Colors.muted,

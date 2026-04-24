@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Colors, Spacing } from '../constants/theme'
+import { supabase } from '../lib/supabase'
 
 const PRO_FEATURES = [
   { emoji: '🤖', title: 'Weekly AI Adaptation', desc: 'Your program adjusts every week based on what actually happened' },
@@ -12,6 +14,14 @@ const PRO_FEATURES = [
 ]
 
 export default function PaywallScreen() {
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session)
+    })
+  }, [])
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -39,22 +49,37 @@ export default function PaywallScreen() {
           ))}
         </View>
 
-        <View style={styles.pricingCard}>
-          <Text style={styles.price}>$12.99<Text style={styles.pricePer}> / month</Text></Text>
-          <Text style={styles.priceAlt}>or $79.99 / year — save 49%</Text>
-          <Text style={styles.priceTagline}>Less than one personal training session.</Text>
-        </View>
+        {isLoggedIn === false && (
+          <View style={styles.trialBanner}>
+            <Text style={styles.trialHeadline}>Try it free for 4 weeks</Text>
+            <Text style={styles.trialSub}>
+              Create a free account to unlock everything above. No credit card required — your trial starts the moment you sign up.
+            </Text>
+            <TouchableOpacity style={styles.trialBtn} onPress={() => router.push('/(auth)/signup')}>
+              <Text style={styles.trialBtnText}>Start Free Trial</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.signInRow} onPress={() => router.push('/(auth)/login')}>
+              <Text style={styles.signInText}>Already have an account? <Text style={styles.signInLink}>Sign in</Text></Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* RevenueCat purchase buttons go here in Phase 3 */}
-        <TouchableOpacity style={styles.ctaBtn}>
-          <Text style={styles.ctaBtnText}>Start Free Trial — 4 Weeks Free</Text>
-        </TouchableOpacity>
+        {isLoggedIn === true && (
+          <>
+            <View style={styles.pricingCard}>
+              <Text style={styles.price}>$12.99<Text style={styles.pricePer}> / month</Text></Text>
+              <Text style={styles.priceAlt}>or $79.99 / year — save 49%</Text>
+              <Text style={styles.priceTagline}>Less than one personal training session.</Text>
+            </View>
 
-        <TouchableOpacity style={styles.signInRow} onPress={() => router.push('/(auth)/login')}>
-          <Text style={styles.signInText}>Already have an account? <Text style={styles.signInLink}>Sign in</Text></Text>
-        </TouchableOpacity>
+            {/* RevenueCat purchase buttons go here in Phase 3 */}
+            <TouchableOpacity style={styles.ctaBtn}>
+              <Text style={styles.ctaBtnText}>Subscribe to Pro</Text>
+            </TouchableOpacity>
 
-        <Text style={styles.legal}>Cancel anytime. No commitment.</Text>
+            <Text style={styles.legal}>Cancel anytime. No commitment.</Text>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   )
@@ -105,6 +130,39 @@ const styles = StyleSheet.create({
   featureTitle: { color: Colors.text, fontSize: 15, fontWeight: '600', marginBottom: 2 },
   featureDesc: { color: Colors.muted, fontSize: 13, lineHeight: 18 },
 
+  // Trial banner (non-logged-in users)
+  trialBanner: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  trialHeadline: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  trialSub: {
+    color: Colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  trialBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 14,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  trialBtnText: { color: Colors.text, fontSize: 16, fontWeight: '700' },
+
+  // Pricing card (logged-in users)
   pricingCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -126,7 +184,7 @@ const styles = StyleSheet.create({
   },
   ctaBtnText: { color: Colors.text, fontSize: 16, fontWeight: '700' },
 
-  signInRow: { alignItems: 'center', marginBottom: Spacing.md },
+  signInRow: { alignItems: 'center' },
   signInText: { color: Colors.muted, fontSize: 14 },
   signInLink: { color: Colors.accent, fontWeight: '600' },
 

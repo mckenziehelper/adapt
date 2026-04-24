@@ -12,6 +12,7 @@ import {
 } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
+import { getDeviceId } from '../../lib/device'
 import { Colors, Spacing } from '../../constants/theme'
 
 export default function SignupScreen() {
@@ -38,12 +39,19 @@ export default function SignupScreen() {
       return
     }
     setLoading(true)
+    const deviceId = await getDeviceId()
     const { data, error } = await supabase.auth.signUp({ email: email.trim(), password })
-    setLoading(false)
     if (error) {
+      setLoading(false)
       Alert.alert('Sign up failed', error.message)
       return
     }
+
+    // Save device ID to profile so we can detect trial abuse on this device
+    if (data.user) {
+      await supabase.from('profiles').upsert({ id: data.user.id, device_id: deviceId })
+    }
+    setLoading(false)
     if (!data.session) {
       // Email confirmation required (default Supabase setting)
       Alert.alert(
@@ -61,7 +69,7 @@ export default function SignupScreen() {
     >
       <View style={styles.container}>
         <Text style={styles.heading}>Create account</Text>
-        <Text style={styles.sub}>Start your program today</Text>
+        <Text style={styles.sub}>4 weeks of Adapt Pro, free. No card required.</Text>
 
         <TextInput
           style={styles.input}

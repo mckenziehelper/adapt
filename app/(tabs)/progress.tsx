@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
 import { Q } from '@nozbe/watermelondb'
+import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg'
 import { Colors, Spacing } from '../../constants/theme'
 import { database, SessionModel, SetModel } from '../../lib/watermelon'
 import {
@@ -19,18 +21,82 @@ import {
   getTopLifts,
   getRecentSessions,
   getConsistencyCalendar,
+  getCombinedLiftHistory,
   LiftSummary,
   SessionSummary,
   CalendarDay,
+  CombinedLiftSeries,
 } from '../../lib/stats'
 
 type Stats = { sessions: number; prs: number; weekStreak: number }
+
+function CombinedChart({ series }: { series: CombinedLiftSeries[] }) {
+  const { width } = useWindowDimensions()
+  const chartWidth = width - Spacing.lg * 2 - Spacing.md * 2
+  const chartHeight = 160
+  const paddingTop = 16
+  const paddingBottom = 32
+  const paddingLeft = 44
+  const paddingRight = 16
+
+  const innerW = chartWidth - paddingLeft - paddingRight
+  const innerH = chartHeight - paddingTop - paddingBottom
+
+  const allWeights = series.flatMap(s => s.points.map(p => p.maxWeight))
+  const allDates = series.flatMap(s => s.points.map(p => p.date))
+  const minW = Math.min(...allWeights)
+  const maxW = Math.max(...allWeights)
+  const minD = Math.min(...allDates)
+  const maxD = Math.max(...allDates)
+  const weightRange = maxW - minW || 1
+  const dateRange = maxD - minD || 1
+
+  function px(date: number) {
+    return paddingLeft + ((date - minD) / dateRange) * innerW
+  }
+  function py(weight: number) {
+    return paddingTop + innerH - ((weight - minW) / weightRange) * innerH
+  }
+
+  const yTicks = [minW, Math.round((minW + maxW) / 2), maxW]
+
+  return (
+    <Svg width={chartWidth} height={chartHeight}>
+      {yTicks.map((w, i) => (
+        <React.Fragment key={i}>
+          <Line
+            x1={paddingLeft - 4} y1={py(w)}
+            x2={chartWidth - paddingRight} y2={py(w)}
+            stroke={Colors.surface} strokeWidth={1}
+          />
+          <SvgText x={paddingLeft - 8} y={py(w) + 4} fontSize={9} fill={Colors.muted} textAnchor="end">
+            {w}
+          </SvgText>
+        </React.Fragment>
+      ))}
+
+      {series.map((lift) => {
+        const points = lift.points.map(p => ({ px: px(p.date), py: py(p.maxWeight) }))
+        const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.px} ${p.py}`).join(' ')
+        return (
+          <React.Fragment key={lift.exerciseName}>
+            <Path d={pathD} stroke={lift.color} strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+            {points.map((p, i) => (
+              <Circle key={i} cx={p.px} cy={p.py} r={3} fill={lift.color} />
+            ))}
+          </React.Fragment>
+        )
+      })}
+    </Svg>
+  )
+}
 
 export default function ProgressScreen() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [lifts, setLifts] = useState<LiftSummary[]>([])
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [calendar, setCalendar] = useState<CalendarDay[]>([])
+  const [combinedSeries, setCombinedSeries] = useState<CombinedLiftSeries[]>([])
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -41,11 +107,13 @@ export default function ProgressScreen() {
       getTopLifts(),
       getRecentSessions(10),
       getConsistencyCalendar(35),
-    ]).then(([s, l, sess, cal]) => {
+      getCombinedLiftHistory(5),
+    ]).then(([s, l, sess, cal, combined]) => {
       setStats(s)
       setLifts(l)
       setSessions(sess)
       setCalendar(cal)
+      setCombinedSeries(combined)
       setLoading(false)
     })
   }
@@ -58,11 +126,13 @@ export default function ProgressScreen() {
         getTopLifts(),
         getRecentSessions(10),
         getConsistencyCalendar(35),
-      ]).then(([s, l, sess, cal]) => {
+        getCombinedLiftHistory(5),
+      ]).then(([s, l, sess, cal, combined]) => {
         setStats(s)
         setLifts(l)
         setSessions(sess)
         setCalendar(cal)
+        setCombinedSeries(combined)
         setLoading(false)
       })
     }, [])
@@ -87,6 +157,26 @@ export default function ProgressScreen() {
           <StatTile value={stats?.prs ?? 0} label="PRs HIT" color={Colors.success} />
           <StatTile value={stats?.weekStreak ?? 0} label="WK STREAK" color={Colors.accent} />
         </View>
+
+        {/* Combined lift chart */}
+        {combinedSeries.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>LIFT PROGRESS — TOP {combinedSeries.length} EXERCISES</Text>
+            <View style={styles.card}>
+              <View style={{ padding: Spacing.md, paddingBottom: 0 }}>
+                <CombinedChart series={combinedSeries} />
+              </View>
+              <View style={styles.chartLegend}>
+                {combinedSeries.map(s => (
+                  <View key={s.exerciseName} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: s.color }]} />
+                    <Text style={styles.legendText} numberOfLines={1}>{s.exerciseName}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Top lifts */}
         {lifts.length > 0 && (
@@ -323,6 +413,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
+
+  chartLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    padding: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { color: Colors.muted, fontSize: 10, maxWidth: 90 },
 
   liftRow: {
     flexDirection: 'row',

@@ -198,6 +198,55 @@ export async function getConsistencyCalendar(days = 35): Promise<CalendarDay[]> 
   return result
 }
 
+export type CombinedLiftSeries = {
+  exerciseName: string
+  color: string
+  points: { date: number; maxWeight: number }[]
+}
+
+const SERIES_COLORS = ['#3B82F6', '#84CC16', '#F59E0B', '#EC4899', '#A78BFA']
+
+/** Top N exercises with per-session max weight, for the combined progress chart */
+export async function getCombinedLiftHistory(topN = 5): Promise<CombinedLiftSeries[]> {
+  const [allSets, allSessions] = await Promise.all([
+    database.get<SetModel>('sets').query().fetch(),
+    database.get<SessionModel>('sessions').query().fetch(),
+  ])
+
+  const sessionTs: Record<string, number> = {}
+  for (const s of allSessions) {
+    if (s.completedAt) sessionTs[s.id] = s.completedAt
+  }
+
+  const byExercise: Record<string, Record<string, number>> = {}
+  for (const set of allSets) {
+    const ts = sessionTs[set.sessionId]
+    if (!ts || !set.weight) continue
+    if (!byExercise[set.exerciseName]) byExercise[set.exerciseName] = {}
+    byExercise[set.exerciseName][set.sessionId] = Math.max(
+      byExercise[set.exerciseName][set.sessionId] ?? 0,
+      set.weight
+    )
+  }
+
+  return Object.entries(byExercise)
+    .map(([name, sessionMaxes]) => {
+      const points = Object.entries(sessionMaxes)
+        .map(([sid, maxWeight]) => ({ date: sessionTs[sid], maxWeight }))
+        .sort((a, b) => a.date - b.date)
+        .slice(-8)
+      return { exerciseName: name, points, bestWeight: Math.max(...points.map(p => p.maxWeight)) }
+    })
+    .filter(e => e.points.length >= 2)
+    .sort((a, b) => b.bestWeight - a.bestWeight)
+    .slice(0, topN)
+    .map((e, i) => ({
+      exerciseName: e.exerciseName,
+      color: SERIES_COLORS[i % SERIES_COLORS.length],
+      points: e.points,
+    }))
+}
+
 /** All sets for one exercise, grouped by session, newest first, capped at 8 sessions */
 export async function getLiftHistory(exerciseName: string): Promise<LiftSession[]> {
   const [allSets, allSessions] = await Promise.all([

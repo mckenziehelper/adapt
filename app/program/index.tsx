@@ -7,11 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
-import { Colors, Spacing } from '../../constants/theme'
+import { Colors, Spacing, Radius } from '../../constants/theme'
 import { getActiveProgram, updateProgram } from '../../lib/programs'
 import { ProgramModel } from '../../lib/watermelon'
 import { requireAuthAndPro } from '../../lib/auth-gate'
@@ -49,7 +48,6 @@ export default function ProgramScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Re-fetch on focus so changes from coach chat are reflected
       if (!isDirty) {
         getActiveProgram().then((p) => {
           if (!p) return
@@ -98,80 +96,123 @@ export default function ProgramScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>‹ Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.coachBtn}
-          onPress={async () => {
-            const allowed = await requireAuthAndPro()
-            if (allowed) router.push('/program/coach-chat')
-          }}
-        >
-          <Text style={styles.coachBtnText}>Chat with Coach</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {isDirty && (
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+              <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save'}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.coachBtn}
+            onPress={async () => {
+              const allowed = await requireAuthAndPro()
+              if (allowed) router.push('/program/coach-chat')
+            }}
+          >
+            <Text style={styles.coachBtnText}>Coach</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         {/* Program name */}
         <Text style={styles.programName}>{draft.program_name}</Text>
         <Text style={styles.programStructure}>{draft.weekly_structure}</Text>
 
-        {/* Session tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabsScroll}
-          contentContainerStyle={styles.tabsContainer}
-        >
+        {/* Day selector — 4-column grid style */}
+        <View style={styles.daySelector}>
           {draft.sessions.map((s) => (
             <TouchableOpacity
               key={s.day}
               onPress={() => setSelectedDay(s.day)}
-              style={[styles.tab, selectedDay === s.day && styles.tabActive]}
+              style={[styles.dayTab, selectedDay === s.day && styles.dayTabActive]}
             >
-              <Text style={[styles.tabText, selectedDay === s.day && styles.tabTextActive]}>
+              <Text style={[styles.dayTabText, selectedDay === s.day && styles.dayTabTextActive]}>
                 Day {s.day}
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {/* Session focus */}
         {session && (
           <>
             <Text style={styles.sessionFocus}>{session.focus}</Text>
 
-            {/* Exercises */}
-            {session.exercises.map((exercise, exIdx) => (
-              <ExerciseCard
-                key={exIdx}
-                exercise={exercise}
-                onChange={(field, value) => updateExercise(sessionIdx, exIdx, field, value)}
-              />
-            ))}
+            {/* Unified exercise card with hairline dividers */}
+            <View style={styles.exercisesCard}>
+              {/* Column headers */}
+              <View style={styles.exColHeaders}>
+                <View style={styles.exNameCol} />
+                <Text style={styles.exColLabel}>SETS</Text>
+                <Text style={styles.exColLabel}>REPS</Text>
+                <Text style={styles.exColLabel}>LBS</Text>
+                <Text style={styles.exColLabel}>REST</Text>
+              </View>
+
+              {session.exercises.map((exercise, exIdx) => (
+                <View
+                  key={exIdx}
+                  style={[styles.exerciseRow, exIdx > 0 && styles.exerciseRowBorder]}
+                >
+                  {/* Name + tag */}
+                  <View style={styles.exNameCol}>
+                    <View style={[
+                      styles.tag,
+                      exercise.category === 'main' && styles.tagMain,
+                      exercise.category === 'warmup' && styles.tagWarmup,
+                    ]}>
+                      <Text style={[styles.tagText, exercise.category === 'main' && styles.tagTextMain]}>
+                        {exercise.category?.toUpperCase()}
+                      </Text>
+                    </View>
+                    <TextInput
+                      style={styles.exName}
+                      value={exercise.name}
+                      onChangeText={(v) => updateExercise(sessionIdx, exIdx, 'name', v)}
+                      placeholderTextColor={Colors.faint}
+                    />
+                    {exercise.notes ? (
+                      <Text style={styles.exNotes} numberOfLines={2}>{exercise.notes}</Text>
+                    ) : null}
+                  </View>
+
+                  {/* Stats */}
+                  <StatCell
+                    value={String(exercise.sets)}
+                    onChangeText={(v) => updateExercise(sessionIdx, exIdx, 'sets', parseInt(v) || 1)}
+                    numeric
+                  />
+                  <StatCell
+                    value={exercise.reps}
+                    onChangeText={(v) => updateExercise(sessionIdx, exIdx, 'reps', v)}
+                  />
+                  <StatCell
+                    value={String(exercise.starting_weight)}
+                    onChangeText={(v) => updateExercise(sessionIdx, exIdx, 'starting_weight', parseFloat(v) || 0)}
+                    numeric
+                  />
+                  <StatCell
+                    value={String(exercise.rest_seconds)}
+                    onChangeText={(v) => updateExercise(sessionIdx, exIdx, 'rest_seconds', parseInt(v) || 60)}
+                    numeric
+                  />
+                </View>
+              ))}
+            </View>
           </>
         )}
 
         {/* Coach note */}
-        {draft.coach_note && (
+        {draft.coach_note ? (
           <View style={styles.coachNoteCard}>
-            <Text style={styles.coachNoteLabel}>COACH NOTE</Text>
-            <Text style={styles.coachNoteText}>{draft.coach_note}</Text>
+            <View style={styles.coachNoteDot} />
+            <View style={styles.coachNoteBody}>
+              <Text style={styles.coachNoteLabel}>COACH NOTE</Text>
+              <Text style={styles.coachNoteText}>{draft.coach_note}</Text>
+            </View>
           </View>
-        )}
-
-        {/* Save button */}
-        {isDirty && (
-          <TouchableOpacity
-            style={styles.saveBtn}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color={Colors.text} />
-            ) : (
-              <Text style={styles.saveBtnText}>Save Changes</Text>
-            )}
-          </TouchableOpacity>
-        )}
+        ) : null}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -179,110 +220,22 @@ export default function ProgramScreen() {
   )
 }
 
-function ExerciseCard({
-  exercise,
-  onChange,
+function StatCell({
+  value, onChangeText, numeric,
 }: {
-  exercise: Exercise
-  onChange: (field: keyof Exercise, value: any) => void
-}) {
-  return (
-    <View style={styles.exerciseCard}>
-      {/* Name row */}
-      <View style={styles.exerciseNameRow}>
-        <TextInput
-          style={styles.exerciseNameInput}
-          value={exercise.name}
-          onChangeText={(v) => onChange('name', v)}
-          placeholder="Exercise name"
-          placeholderTextColor={Colors.muted}
-        />
-        <View style={[
-          styles.categoryBadge,
-          exercise.category === 'main' && styles.categoryMain,
-          exercise.category === 'accessory' && styles.categoryAccessory,
-        ]}>
-          <Text style={styles.categoryText}>{exercise.category?.toUpperCase()}</Text>
-        </View>
-      </View>
-
-      {/* Stats grid */}
-      <View style={styles.statsGrid}>
-        <StatField
-          label="SETS"
-          value={String(exercise.sets)}
-          numeric
-          onChange={(v) => onChange('sets', parseInt(v) || 1)}
-        />
-        <StatField
-          label="REPS"
-          value={exercise.reps}
-          onChange={(v) => onChange('reps', v)}
-        />
-        <StatField
-          label="WEIGHT"
-          value={String(exercise.starting_weight)}
-          numeric
-          suffix="lbs"
-          onChange={(v) => onChange('starting_weight', parseFloat(v) || 0)}
-        />
-        <StatField
-          label="REST"
-          value={String(exercise.rest_seconds)}
-          numeric
-          suffix="s"
-          onChange={(v) => onChange('rest_seconds', parseInt(v) || 60)}
-        />
-      </View>
-
-      {/* Progression */}
-      <View style={styles.progressionRow}>
-        <Text style={styles.progressionLabel}>PROGRESSION</Text>
-        <TextInput
-          style={styles.progressionInput}
-          value={exercise.progression}
-          onChangeText={(v) => onChange('progression', v)}
-          placeholder="e.g. +5lbs per session"
-          placeholderTextColor={Colors.muted}
-        />
-      </View>
-
-      {/* Notes */}
-      {exercise.notes ? (
-        <Text style={styles.exerciseNotes}>{exercise.notes}</Text>
-      ) : null}
-    </View>
-  )
-}
-
-function StatField({
-  label,
-  value,
-  numeric,
-  suffix,
-  onChange,
-}: {
-  label: string
   value: string
+  onChangeText: (v: string) => void
   numeric?: boolean
-  suffix?: string
-  onChange: (v: string) => void
 }) {
   return (
-    <View style={styles.statField}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <View style={styles.statInputRow}>
-        <TextInput
-          style={styles.statInput}
-          value={value}
-          onChangeText={onChange}
-          keyboardType={numeric ? 'numeric' : 'default'}
-          selectTextOnFocus
-          placeholderTextColor={Colors.muted}
-        />
-        {suffix && <Text style={styles.statSuffix}>{suffix}</Text>}
-      </View>
-    </View>
+    <TextInput
+      style={styles.statCell}
+      value={value}
+      onChangeText={onChangeText}
+      keyboardType={numeric ? 'numeric' : 'default'}
+      selectTextOnFocus
+      placeholderTextColor={Colors.faint}
+    />
   )
 }
 
@@ -293,176 +246,175 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.line,
   },
   backBtn: { paddingVertical: 6, paddingRight: 12 },
   backText: { color: Colors.accent, fontSize: 17 },
-  coachBtn: {
-    backgroundColor: Colors.accent,
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  saveBtn: {
+    backgroundColor: Colors.success,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: Radius.pill,
   },
-  coachBtnText: { color: Colors.text, fontWeight: '700', fontSize: 14 },
+  saveBtnText: { color: Colors.accentInk, fontWeight: '700', fontSize: 13 },
+  coachBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.pill,
+    borderWidth: 0.5,
+    borderColor: Colors.accent,
+  },
+  coachBtnText: { color: Colors.accent, fontWeight: '600', fontSize: 13 },
 
   scroll: { flex: 1 },
-  container: { padding: Spacing.md },
+  container: { padding: Spacing.lg },
 
   programName: {
     color: Colors.text,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '600',
+    letterSpacing: -0.5,
     marginBottom: 4,
   },
   programStructure: {
     color: Colors.muted,
     fontSize: 13,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
   },
 
-  // Session tabs
-  tabsScroll: { marginBottom: Spacing.sm },
-  tabsContainer: { gap: 8, paddingBottom: 4 },
-  tab: {
-    paddingHorizontal: 18,
+  daySelector: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: Spacing.md,
+    flexWrap: 'wrap',
+  },
+  dayTab: {
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: Radius.sm,
+    borderWidth: 0.5,
+    borderColor: Colors.line,
     backgroundColor: Colors.surface,
   },
-  tabActive: { backgroundColor: Colors.accent },
-  tabText: { color: Colors.muted, fontWeight: '600', fontSize: 14 },
-  tabTextActive: { color: Colors.text },
+  dayTabActive: {
+    backgroundColor: Colors.accentSoft,
+    borderColor: Colors.accent,
+  },
+  dayTabText: { color: Colors.muted, fontWeight: '600', fontSize: 13 },
+  dayTabTextActive: { color: Colors.accent },
 
   sessionFocus: {
-    color: Colors.muted,
-    fontSize: 12,
+    color: Colors.faint,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     marginBottom: Spacing.sm,
   },
 
-  // Exercise card
-  exerciseCard: {
+  exercisesCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  exerciseNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-    gap: 8,
-  },
-  exerciseNameInput: {
-    flex: 1,
-    color: Colors.text,
-    fontSize: 17,
-    fontWeight: '700',
-    padding: 0,
-  },
-  categoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: Colors.background,
-  },
-  categoryMain: { backgroundColor: '#1E3A5F' },
-  categoryAccessory: { backgroundColor: '#1A2E1A' },
-  categoryText: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: Colors.muted,
-  },
-
-  // Stats grid
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: Spacing.sm,
-  },
-  statField: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    borderRadius: 8,
-    padding: 8,
-    alignItems: 'center',
-  },
-  statLabel: {
-    color: Colors.muted,
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  statInputRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
-  statInput: {
-    color: Colors.text,
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-    minWidth: 28,
-    padding: 0,
-  },
-  statSuffix: { color: Colors.muted, fontSize: 11 },
-
-  progressionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  progressionLabel: {
-    color: Colors.muted,
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1,
-    width: 80,
-  },
-  progressionInput: {
-    flex: 1,
-    color: Colors.muted,
-    fontSize: 13,
-    padding: 0,
-  },
-  exerciseNotes: {
-    color: Colors.muted,
-    fontSize: 12,
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-
-  // Coach note
-  coachNoteCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: Spacing.md,
-    marginTop: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 0.5,
+    borderColor: Colors.line,
+    overflow: 'hidden',
     marginBottom: Spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: Colors.accent,
   },
+  exColHeaders: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.line,
+  },
+  exNameCol: { flex: 1, marginRight: 8 },
+  exColLabel: {
+    width: 40,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: Colors.faint,
+    textAlign: 'center',
+  },
+
+  exerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  exerciseRowBorder: {
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.line,
+  },
+
+  tag: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 0.5,
+    borderColor: Colors.line,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 4,
+  },
+  tagMain: { backgroundColor: Colors.accentSoft, borderColor: 'transparent' },
+  tagWarmup: { backgroundColor: 'rgba(255,255,255,0.06)' },
+  tagText: { fontSize: 8, fontWeight: '700', letterSpacing: 0.8, color: Colors.muted },
+  tagTextMain: { color: Colors.accent },
+
+  exName: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    padding: 0,
+    letterSpacing: -0.1,
+  },
+  exNotes: {
+    color: Colors.faint,
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+
+  statCell: {
+    width: 40,
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+    padding: 0,
+  },
+
+  coachNoteCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 0.5,
+    borderColor: Colors.line,
+    padding: Spacing.md,
+    gap: 12,
+    marginBottom: Spacing.md,
+  },
+  coachNoteDot: {
+    width: 20, height: 20,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.accent,
+    flexShrink: 0,
+    marginTop: 2,
+  },
+  coachNoteBody: { flex: 1 },
   coachNoteLabel: {
-    color: Colors.accent,
+    color: Colors.faint,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 1.5,
     marginBottom: 6,
   },
   coachNoteText: { color: Colors.muted, fontSize: 14, lineHeight: 20 },
-
-  // Save button
-  saveBtn: {
-    backgroundColor: Colors.success,
-    padding: Spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: Spacing.sm,
-  },
-  saveBtnText: { color: Colors.text, fontSize: 17, fontWeight: '700' },
 })
