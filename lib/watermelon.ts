@@ -131,7 +131,7 @@ export class SetModel extends Model {
 const adapter = new SQLiteAdapter({
   schema: dbSchema,
   dbName: 'adapt',
-  jsi: true,
+  jsi: false,
   onSetUpError: (error: Error) => {
     console.error('WatermelonDB setup error:', error)
   },
