@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react'
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { Colors, Spacing } from '../../constants/theme'
 import { supabase } from '../../lib/supabase'
@@ -46,10 +46,10 @@ export default function GeneratingScreen() {
       await saveProgram(data.program, data.program.coach_note ?? '')
 
       router.replace('/(onboarding)/ready')
-    } catch (err) {
+    } catch (err: any) {
       console.error('Program generation failed:', err)
-      // On failure, redirect anyway — user can regenerate from profile
-      router.replace('/(onboarding)/ready')
+      router.replace('/(onboarding)/questions')
+      Alert.alert('Generation failed', err?.message ?? 'Something went wrong. Please try again.')
     }
   }
 
