@@ -15,6 +15,7 @@ export async function callAI(systemPrompt: string, userPrompt: string, maxTokens
     },
     body: JSON.stringify({
       model: MODEL,
+      route: 'fallback',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
