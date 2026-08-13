@@ -26,7 +26,8 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "mckenziehelper@gmail.com"
+        "appleId": "apple@benmckenzie.com",
+        "ascAppId": "6763648807"
       }
     }
   }
