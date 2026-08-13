@@ -18,6 +18,22 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetting, setResetting] = useState(false)
+
+  async function handleForgotPassword() {
+    if (!email.trim() || !email.includes('@')) {
+      Alert.alert('Enter your email', 'Type your email above then tap Forgot Password.')
+      return
+    }
+    setResetting(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim())
+    setResetting(false)
+    if (error) {
+      Alert.alert('Error', error.message)
+    } else {
+      Alert.alert('Check your email', 'A password reset link has been sent to ' + email.trim())
+    }
+  }
 
   async function handleSignIn() {
     if (!email.trim() || !password) {
@@ -76,6 +92,10 @@ export default function LoginScreen() {
           }
         </TouchableOpacity>
 
+        <TouchableOpacity onPress={handleForgotPassword} disabled={resetting} style={styles.linkRow}>
+          <Text style={styles.linkText}>{resetting ? 'Sending…' : <Text style={styles.link}>Forgot password?</Text>}</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => router.push('/(auth)/signup')} style={styles.linkRow}>
           <Text style={styles.linkText}>Don't have an account? <Text style={styles.link}>Sign up</Text></Text>
         </TouchableOpacity>
@@ -119,7 +139,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: Colors.text, fontSize: 16, fontWeight: '700' },
+  buttonText: { color: Colors.accentInk, fontSize: 16, fontWeight: '700' },
   linkRow: { marginTop: Spacing.lg, alignItems: 'center' },
   linkText: { color: Colors.muted, fontSize: 14 },
   link: { color: Colors.accent, fontWeight: '600' },
