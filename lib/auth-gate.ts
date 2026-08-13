@@ -38,6 +38,9 @@ export async function userHasPro(userId: string, userCreatedAt?: string): Promis
  * onto a login screen without context.
  */
 export async function requireAuthAndPro(): Promise<boolean> {
+  // Testing mode — all features unlocked
+  return true
+
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
